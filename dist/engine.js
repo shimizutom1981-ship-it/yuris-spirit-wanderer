@@ -46,6 +46,17 @@ function position(s,p){return p.id===s.party[0].id?{x:s.x,y:s.y}:{x:Number.isInt
 function normalize(s){if(!s.combat||typeof s.combat.active!=='boolean'||!Array.isArray(s.combat.acted))s.combat={active:false,acted:[],round:0};s.combat.round=Number.isInteger(s.combat.round)?s.combat.round:0;s.openedDoors??={};World.migrate(s);Gear.ensure(s);if(terrain(s.x,s.y)==='door')s.openedDoors[`${s.x},${s.y}`]=true;people(s);s.party.forEach(p=>{const v=position(s,p);p.x=v.x;p.y=v.y});return s}
 function toggleDoor(s,x,y){normalize(s);if(!canAct(s,s.party[0].id))return false;if(terrain(x,y)!=='door'||distance(s,{x,y})>1)return false;const k=`${x},${y}`;if(s.openedDoors[k]&&(occupied(s,x,y)||enemy(s,x,y))){say(s,'扉のところに誰かがいる。');return false}s.openedDoors[k]=!s.openedDoors[k];say(s,s.openedDoors[k]?'扉を開けた。':'扉を閉めた。');finishAction(s,s.party[0].id);return true}
 function occupied(s,x,y,except){return s.party.some(p=>p.id!==except&&p.hp>0&&position(s,p).x===x&&position(s,p).y===y)}
+// Friends yield by exchanging adjacent, walkable cells. Update the leader's
+// world position too, even when another party member initiates the exchange.
+function stepMember(s,p,x,y){
+ const from=position(s,p),other=s.party.find(q=>q.id!==p.id&&q.hp>0&&position(s,q).x===x&&position(s,q).y===y);
+ if(other){
+  if(!pass(s,from.x,from.y)||occupied(s,from.x,from.y,p.id))return false;
+  other.x=from.x;other.y=from.y;
+  if(other===s.party[0]){s.x=from.x;s.y=from.y;}
+ }
+ p.x=x;p.y=y;if(p===s.party[0]){s.x=x;s.y=y;}return true;
+}
 function enemyTurn(s){normalize(s);s.turn++;if(s.ward>0)s.ward--;for(const e of s.enemies.filter(e=>e.hp>0)){if(e.sleep>0){e.sleep--;continue;}const targets=s.party.filter(p=>p.hp>0&&visible(s,e,position(s,p))).sort((a,b)=>distance(position(s,a),e)-distance(position(s,b),e));const p=targets[0];if(!p)continue;const target=position(s,p);if(distance(target,e)<=1){const damage=Math.max(1,e.atk+2-Gear.stats(p).def-(s.ward>0?3:0));p.hp=Math.max(0,p.hp-damage);say(s,`${e.type==='wolf'?'森の獣':'守護機霊'}の攻撃。${p.name}に${damage}。`)}else if(inSight(s,target,e)){const dx=Math.sign(target.x-e.x),dy=Math.sign(target.y-e.y);for(const [x,y] of [[e.x+dx,e.y],[e.x,e.y+dy]])if((x!==e.x||y!==e.y)&&pass(s,x,y)&&!occupied(s,x,y)){e.x=x;e.y=y;break}}}if(s.party.every(p=>p.hp<=0)){s.x=12;s.y=18;s.party.forEach(p=>{p.hp=Math.ceil(p.max*.65);p.x=s.x;p.y=s.y});s.gold=Math.max(0,s.gold-3);s.combat.ended=true;s.combat.active=false;s.combat.acted=[];say(s,'仲間に助けられ町へ戻った。治療費3枚。冒険の記録は失われない。')}}
 function nearbyThreat(s){return s.enemies.some(e=>e.hp>0&&s.party.some(p=>p.hp>0&&inSight(s,position(s,p),e)))}
 function beginCombat(s){normalize(s);if(!s.combat.active){s.combat.active=true;s.combat.ended=false;s.combat.acted=[];s.combat.round=1;say(s,'戦闘開始。生きている仲間が一人ずつ行動する。')}return true}
@@ -56,9 +67,9 @@ function finishAction(s,id){if(!s.combat.active){tick(s);return}if(!s.combat.act
 function waitActor(s,id){normalize(s);if(!canAct(s,id))return false;beginCombat(s);say(s,s.party.find(p=>p.id===id).name+'は様子を見る。');finishAction(s,id);return true}
 // Legacy tick callers cannot bypass a combat round: this becomes the leader's wait.
 function tick(s,previous){normalize(s);if(s.combat.active)return waitActor(s,s.party[0].id);if(s.aboard){s.turn++;if(s.ward>0)s.ward--;lifeStep(s);return true}followParty(s,previous);s.turn++;if(s.ward>0)s.ward--;detectCombat(s);lifeStep(s);return true}
-// Follow real walkable routes. Catch up after separation without crossing occupied
-// cells, walls or enemies; ordinary doors are opened along the route.
-function followerPath(s,p,front){const from=position(s,p),goal=position(s,front);return route(s,from.x,from.y,goal.x,goal.y,true,true,true)}
+// Follow walkable routes and exchange cells with trailing companions when needed.
+// Settled front members, walls and enemies block the route; ordinary doors open.
+function followerPath(s,p,front,settled){const from=position(s,p),goal=position(s,front);return route(s,from.x,from.y,goal.x,goal.y,true,settled,true)}
 function followParty(s,previous){
  if(s.combat?.active)return;
  const living=s.party.filter(p=>p.hp>0);
@@ -68,24 +79,23 @@ function followParty(s,previous){
   for(let i=1;i<living.length;i++){const p=living[i],to=previous[living[i-1].id];p.x=to.x;p.y=to.y;}return;
  }
  if(living.every((p,i)=>i===0||distance(position(s,p),position(s,living[i-1]))===1)&&new Set(living.map(p=>{const a=position(s,p);return a.x+','+a.y})).size===living.length)return;
- let front=s.party[0];
+ let front=s.party[0];const settled=new Set([front.id]);
  for(const p of s.party.slice(1)){
   if(p.hp<=0)continue;
-  // A rear member already nearer the leader must not walk back and plug
-  // a doorway while a separated predecessor is trying to get out.
-  const target=front!==s.party[0]&&distance(position(s,p),s)<distance(position(s,front),s)?s.party[0]:front;
-  const gap=distance(position(s,p),position(s,target)),budget=gap>3?3:gap>2?2:1;
+  // Restore the chosen order after a reversal: rear members can yield, while
+  // the already settled front of the line must not be displaced again.
+  const gap=distance(position(s,p),position(s,front)),budget=gap>3?3:gap>2?2:1;
   for(let step=0;step<budget;step++){
-   const route=followerPath(s,p,target);if(!route.length)break;
+   const route=followerPath(s,p,front,settled);if(!route.length)break;
    const [x,y]=route[0];if(terrain(x,y)==='door')s.openedDoors[`${x},${y}`]=true;
-   p.x=x;p.y=y;
+   if(!pass(s,x,y)||!stepMember(s,p,x,y))break;
   }
-  front=p;
+  front=p;settled.add(p.id);
  }
 }
-function move(s,dx,dy){normalize(s);if(s.combat.active)return moveActor(s,s.party[0].id,dx,dy);if(s.aboard)return sail(s,dx,dy);if(Math.abs(dx)+Math.abs(dy)!==1||!pass(s,s.x+dx,s.y+dy))return false;if(occupied(s,s.x+dx,s.y+dy,s.party[0].id)){say(s,'仲間がいる。横に一歩ずれて折り返そう。');return false}const previous=Object.fromEntries(s.party.map(p=>[p.id,position(s,p)]));s.x+=dx;s.y+=dy;s.party[0].x=s.x;s.party[0].y=s.y;tick(s,previous);return true}
+function move(s,dx,dy){normalize(s);if(s.combat.active)return moveActor(s,s.party[0].id,dx,dy);if(s.aboard)return sail(s,dx,dy);const x=s.x+dx,y=s.y+dy;if(Math.abs(dx)+Math.abs(dy)!==1||!pass(s,x,y))return false;const yielding=occupied(s,x,y,s.party[0].id),previous=Object.fromEntries(s.party.map(p=>[p.id,position(s,p)]));if(!stepMember(s,s.party[0],x,y))return false;tick(s,yielding?undefined:previous);return true}
 // In combat the selected member moves without dragging the rest of the party.
-function moveActor(s,id,dx,dy){normalize(s);const p=s.party.find(p=>p.id===id);if(!p||!canAct(s,id)||Math.abs(dx)+Math.abs(dy)!==1)return false;const from=position(s,p),x=from.x+dx,y=from.y+dy;if(!pass(s,x,y)||occupied(s,x,y,id))return false;beginCombat(s);p.x=x;p.y=y;if(p===s.party[0]){s.x=x;s.y=y}finishAction(s,id);return true}
+function moveActor(s,id,dx,dy){normalize(s);const p=s.party.find(p=>p.id===id);if(!p||!canAct(s,id)||Math.abs(dx)+Math.abs(dy)!==1)return false;const from=position(s,p),x=from.x+dx,y=from.y+dy;if(!pass(s,x,y)||!stepMember(s,p,x,y))return false;beginCombat(s);finishAction(s,id);return true}
 function attack(s,e,magic=false,actorId){normalize(s);const actor=s.party.find(p=>p.id===(actorId||s.party[0].id));if(!actor||!canAct(s,actor.id)||!e||e.hp<=0||distance(position(s,actor),e)>(magic?4:Gear.stats(actor).range))return false;if((magic||Gear.stats(actor).range>1)&&!visible(s,position(s,actor),e)){say(s,'壁や木に遮られている。');return false}if(magic&&(actor.id==='ed'||(actor.mp||0)<3)){say(s,actor.id==='ed'?'エドは霊術を使えない。':'霊力が足りない。安全な場所で休もう。');return false}const weapon=Gear.items[actor.gear.weapon];if(!magic&&weapon?.ammo&&s.arrows<1){say(s,'矢がない。武器を持ち替えるか、霊術を使おう。');return false}beginCombat(s);if(magic)actor.mp-=3;else if(weapon?.ammo)s.arrows--;e.sleep=0;const damage=magic?14+Gear.stats(actor).power:Gear.stats(actor).atk;e.hp=Math.max(0,e.hp-damage);say(s,`${actor.name}の${magic?'霊光':'攻撃'}！ ${damage}ダメージ。`);if(!e.hp){s.gold+=5;s.crystal++;say(s,'敵は動きを止めた。霊晶を1つ手に入れた。');if(e.id==='sentinel')s.flags.sentinel=true}finishAction(s,actor.id);return true}
 // One occupancy snapshot per search keeps the larger world responsive.
 function route(s,sx,sy,tx,ty,doors=false,party=false,adjacent=false){
@@ -94,7 +104,7 @@ function route(s,sx,sy,tx,ty,doors=false,party=false,adjacent=false){
  for(const o of objs){if(s.opened.includes(o.id))continue;const p=s.moved?.[o.id]||o;if(o.solid||o.id==='gate'&&!s.flags.gate)blocked.add(p.y*W+p.x)}
  for(const e of s.enemies)if(e.hp>0)blocked.add(e.y*W+e.x);
  for(const n of people(s))if(!s.party.some(p=>p.id===n.id))blocked.add(n.y*W+n.x);
- if(party)for(const p of s.party)if(p.hp>0){const a=position(s,p);if(a.x!==sx||a.y!==sy)blocked.add(a.y*W+a.x)}
+ if(party)for(const p of s.party)if(p.hp>0&&(party===true||party.has(p.id))){const a=position(s,p);if(a.x!==sx||a.y!==sy)blocked.add(a.y*W+a.x)}
  const start=sy*W+sx,target=ty*W+tx,q=[start],prev=new Int32Array(W*H).fill(-1);prev[start]=start;
  for(let head=0;head<q.length;head++){
   const k=q[head],x=k%W,y=Math.floor(k/W);
@@ -109,7 +119,7 @@ function route(s,sx,sy,tx,ty,doors=false,party=false,adjacent=false){
 }
 function pathFrom(s,sx,sy,tx,ty){return route(s,sx,sy,tx,ty)}
 function path(s,tx,ty){return route(s,s.x,s.y,tx,ty)}
-function travelPath(s,tx,ty){if(s.aboard)return sailPath(s,tx,ty);return route(s,s.x,s.y,tx,ty,true,true)}
+function travelPath(s,tx,ty){if(s.aboard)return sailPath(s,tx,ty);return route(s,s.x,s.y,tx,ty,true)}
 function heal(s){normalize(s);if(!canAct(s,s.party[0].id))return false;if(s.herbs<1)return false;const p=s.party.filter(p=>p.hp<p.max).sort((a,b)=>a.hp/a.max-b.hp/b.max)[0];if(!p)return false;s.herbs--;p.hp=Math.min(p.max,p.hp+22);say(s,`${p.name}に薬草。`);finishAction(s,s.party[0].id);return true}
 function rest(s){normalize(s);if(s.combat.active){say(s,'戦闘中は休めない。');return false}if(nearbyThreat(s)){say(s,'近くに敵がいる。安全な場所へ。');return false}if(s.food<1){say(s,'食料が足りない。宿で買おう。');return false}s.food--;s.party.forEach(p=>{p.hp=p.max;p.mp=Gear.stats(p).maxmp});s.turn+=12;say(s,'食事をとり、十分に休んだ。');return true}
 function recruit(s,id){normalize(s);if(s.combat.active)return false;if(s.party.some(p=>p.id===id))return false;const n=people(s).find(n=>n.id===id),back=s.bench?.[id];if(!n||!back&&!['ed','celes'].includes(id))return false;if(back){back.x=n.x;back.y=n.y;s.party.push(back);delete s.bench[id];say(s,`${back.name}がふたたび隊に加わった。`);return true}s.party.push({id,x:n.x,y:n.y,name:n.name,role:id==='ed'?'剣と盾':'封印術',hp:32,max:32,mp:8,atk:id==='ed'?7:4});say(s,`${n.name}が仲間に加わった。一人ずつ移動・攻撃できる。`);return true}

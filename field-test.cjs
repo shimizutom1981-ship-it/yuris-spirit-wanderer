@@ -17,9 +17,9 @@ console.log('PASS world: intact towns, long connected routes, 24 valid field ene
 // Exact four-member train through repeated corners; no shortcut, drift or overlap.
 const line=team();const square=[...[...Array(10)].map(()=>[1,0]),...[...Array(5)].map(()=>[0,1]),...[...Array(10)].map(()=>[-1,0]),...[...Array(5)].map(()=>[0,-1])];
 for(let lap=0;lap<3;lap++)for(const [dx,dy]of square){const before=line.party.map(p=>E.position(line,p));assert(E.move(line,dx,dy));for(let i=1;i<4;i++)assert.deepEqual(E.position(line,line.party[i]),before[i-1]);assert.equal(new Set(line.party.map(p=>p.x+','+p.y)).size,4)}
-const held=line.party.map(point);E.tick(line);assert.deepEqual(line.party.map(point),held);assert(!E.move(line,line.party[1].x-line.x,line.party[1].y-line.y));assert.deepEqual(line.party.map(point),held);
+const held=line.party.map(point);E.tick(line);assert.deepEqual(line.party.map(point),held);
 const copy=JSON.parse(JSON.stringify(line));assert(E.move(copy,1,0));assert.deepEqual(point(copy.party[1]),point(line));
-console.log('PASS formation: 90 turns/steps retain exact order, waiting/save/resume and occupied-tile reversal');
+console.log('PASS formation: 90 turns/steps retain exact order, waiting and save/resume');
 // A narrow building exit and bridge retain the same exact trail.
 for(const start of [{x:11,y:11,dx:0,dy:1},{x:125,y:73,dx:0,dy:1}]){const t=team();t.x=start.x;t.y=start.y;t.party.forEach((p,i)=>{p.x=t.x;p.y=t.y-i});t.openedDoors['11,12']=true;for(let k=0;k<7;k++){const before=t.party.map(p=>E.position(t,p));assert(E.move(t,start.dx,start.dy));for(let i=1;i<4;i++)assert.deepEqual(E.position(t,t.party[i]),before[i-1]);}}
 console.log('PASS formation: single-door exit and river bridge');
@@ -99,3 +99,40 @@ stroll(62);assert(E.isEvening(dusk)&&E.isNight(dusk));assert.deepEqual(point(E.p
 stroll(90);assert(!E.isEvening(dusk)&&E.isNight(dusk));assert.deepEqual(point(E.people(dusk).find(n=>n.id==='farmer')),{x:122,y:16});
 stroll(120);assert(!E.isNight(dusk));assert.deepEqual(point(E.people(dusk).find(n=>n.id==='farmer')),{x:119,y:28});
 console.log('PASS daily round: field by day, eating-house table at dusk, bed at night');
+
+// v0.5.1: a party must never seal its own only exit, on foot or by tap.
+const unique=st=>assert.equal(new Set(st.party.filter(p=>p.hp>0).map(p=>{const a=E.position(st,p);return a.x+','+a.y})).size,st.party.filter(p=>p.hp>0).length);
+function doorway(size){const st=team();st.party=st.party.slice(0,size);st.x=11;st.y=11;st.party.forEach((p,i)=>{p.x=11;p.y=11+i});st.openedDoors['11,12']=true;return st}
+for(const size of [2,3,4]){
+ let st=JSON.parse(JSON.stringify(doorway(size)));const ids=st.party.map(p=>p.id),gold=st.gold;
+ const path=E.travelPath(st,11,17);assert.equal(path.length,6,'companions must not block the only doorway');
+ for(const [x,y]of path){assert(E.move(st,x-st.x,y-st.y));unique(st);assert(st.party.every(p=>E.pass(st,p.x,p.y)));}
+ for(let lap=0;lap<3;lap++)for(const dy of [-1,1])for(let step=0;step<6;step++){
+  assert(E.move(st,0,dy),'reverse into a companion');unique(st);assert(st.party.every(p=>E.pass(st,p.x,p.y)));
+ }
+ assert.deepEqual(st.party.map(p=>p.id),ids,'chosen party order remains intact');assert.equal(st.gold,gold);assert.equal(st.turn,42);
+ assert(st.party.every((p,i)=>!i||E.distance(p,st.party[i-1])===1),'formation reforms');
+ st=JSON.parse(JSON.stringify(st));assert(E.move(st,0,-1));unique(st);
+}
+console.log('PASS yielding: 2/3/4-member parties leave a blocked doorway, reverse repeatedly, reform and resume a stuck save');
+// Walls, closed doors, enemies and residents remain solid; failed moves cost nothing.
+let barrier=doorway(4);barrier.openedDoors['11,12']=false;const fixed=barrier.party.map(point),turn=barrier.turn;
+assert(!E.move(barrier,0,1));assert.deepEqual(barrier.party.map(point),fixed);assert.equal(barrier.turn,turn);
+barrier.openedDoors['11,12']=true;assert(E.move(barrier,0,1));assert(!E.move(barrier,1,0));unique(barrier);
+let blocked=team();blocked.enemies=[{id:'blocker',x:61,y:18,hp:30,max:30,atk:1,type:'wolf'}];assert(!E.move(blocked,1,0));assert.equal(blocked.turn,0);
+blocked.enemies=[];blocked.npcPositions.smith={x:61,y:18};assert(!E.move(blocked,1,0));assert.equal(blocked.turn,0);
+console.log('PASS collision boundaries: yielding never bypasses closed doors, walls, enemies or residents');
+// A manual combat swap consumes exactly the acting member's turn; automatic
+// follow is suspended, and swapping the leader keeps camera/world coordinates in sync.
+let swap=team();swap.party=swap.party.slice(0,2);swap.enemies=[{id:'observer',x:66,y:18,hp:90,max:90,atk:1,type:'wolf'}];E.beginCombat(swap);
+const swappedGear=swap.party.map(p=>JSON.stringify(p.gear));assert(E.moveActor(swap,'ed',1,0));
+assert.deepEqual(point(swap),{x:59,y:18});assert.deepEqual(point(swap.party[0]),point(swap));assert.deepEqual(point(swap.party[1]),{x:60,y:18});
+assert.deepEqual(swap.combat.acted,['ed']);assert.equal(swap.turn,0);assert(!E.moveActor(swap,'ed',-1,0));unique(swap);
+swap=JSON.parse(JSON.stringify(swap));assert(E.moveActor(swap,'yuris',1,0));assert.equal(swap.turn,1);assert.equal(swap.combat.round,2);unique(swap);
+assert.deepEqual(swap.party.map(p=>JSON.stringify(p.gear)),swappedGear);
+console.log('PASS combat yielding: leader/companion exchange, one action, no duplicate turn, save/resume and equipment retained');
+// Teleports and old saves may start with all companions on the leader's tile.
+let stacked=team();stacked.party.forEach(p=>{p.x=stacked.x;p.y=stacked.y});
+for(let i=0;i<5;i++)assert(E.move(stacked,1,0));unique(stacked);
+assert(stacked.party.every((p,i)=>!i||E.distance(p,stacked.party[i-1])===1));
+console.log('PASS overlap recovery: an existing stacked party walks out and forms a line');

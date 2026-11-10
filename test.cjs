@@ -30,7 +30,7 @@ assert.equal(E.nextActor(round),'ed');assert(E.waitActor(round,'ed'));assert.equ
 // Resuming a mid-round save cannot let a used member act twice.
 assert(E.waitActor(round,'yuris'));let resumed=JSON.parse(JSON.stringify(round));E.normalize(resumed);assert(!E.waitActor(resumed,'yuris'));assert.equal(E.nextActor(resumed),'ed');
 // Downed members are skipped, and no nearby living enemy allows safe exit.
-round.party[2].hp=0;assert(E.waitActor(round,'ed'));assert.equal(round.combat.round,3);assert.equal(round.turn,2);round.enemies[0].hp=0;assert(E.endCombat(round));assert(!round.combat.active);assert(!E.move(round,0,1),'occupied follower tile is not crossed');assert(E.move(round,0,-1));
+round.party[2].hp=0;assert(E.waitActor(round,'ed'));assert.equal(round.combat.round,3);assert.equal(round.turn,2);round.enemies[0].hp=0;assert(E.endCombat(round));assert(!round.combat.active);assert(E.move(round,0,1),'a companion yields after combat');assert(E.move(round,0,-1));
 // A legacy save without combat state is migrated without resetting an active round.
 let noCombat=E.fresh();delete noCombat.combat;E.normalize(noCombat);assert.deepEqual(noCombat.combat,{active:false,acted:[],round:0});
 console.log('Combat rounds passed: one action each, enemy once per round, duplicate-action refusal, wait, dead-member skip, save/resume and safe exit.');

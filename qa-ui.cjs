@@ -54,4 +54,15 @@ test('rubble needs the pickaxe, the chasm consumes a rope, the core rewards once
 test('orders set a stance; a companion leaves and rejoins by conversation',()=>{q.reset();at(13,18);q.run("E.recruit(s,'ed');render()");q.button('formation');q.choose('エド：命令');assert.equal(q.run('s.party[1].tactic'),'assault');q.choose('エドと別れる');assert(q.run("s.party.length===1&&s.bench.ed.tactic==='assault'&&selected==='yuris'"));q.choose('閉じる');q.run("talk(E.people(s).find(n=>n.id==='ed'))");q.choose('一緒に来て');assert(q.run("s.party.length===2&&s.party[1].tactic==='assault'&&!s.bench.ed"))});
 test('a companion on a stance acts by itself each round; commanded ones wait for the player',()=>{q.reset();q.run("E.recruit(s,'ed');E.recruit(s,'celes');s.party[1].tactic='assault';s.party[1].x=13;s.party[1].y=18;s.party[2].x=11;s.party[2].y=18;s.enemies=[{id:'foe',x:14,y:18,hp:100,max:100,atk:0,type:'wolf'}];render()");assert(q.run("s.combat.active&&s.combat.acted.join()==='ed'&&s.enemies[0].hp<100&&s.combat.round===1"));const hp=q.run('s.enemies[0].hp');q.run('render();render()');assert.equal(q.run('s.enemies[0].hp'),hp);q.run("E.waitActor(s,'yuris');E.waitActor(s,'celes');render()");assert(q.run("s.combat.round===2&&s.combat.acted.join()==='ed'&&s.enemies[0].hp<"+hp))});
 test('v0.4 save opens in v0.5 with skiff, stones and underground added once',()=>{const old=require('./dist/engine').fresh();old.worldVersion=4;old.enemies=old.enemies.filter(e=>!e.id.startsWith('cave-'));delete old.boat;delete old.rings;delete old.bench;old.gold=77;old.flags.lamp='wood';const a=setup(old);assert(a.run("s.gold===77&&s.flags.lamp==='wood'&&s.worldVersion===5&&s.boat.x===121&&s.enemies.filter(e=>e.id.startsWith('cave-')).length===5"));a.run('render();render()');assert.equal(a.run("s.enemies.filter(e=>e.id.startsWith('cave-')).length"),5)});
+test('direction keys reverse through a companion without overlap or a blocking dialog',()=>{
+ q.reset();q.run("s.enemies=[];E.recruit(s,'ed');E.recruit(s,'celes');s.x=11;s.y=11;s.party.forEach((p,i)=>{p.x=11;p.y=11+i});s.openedDoors['11,12']=true;render()");
+ q.run('directional(0,1)');assert(q.run("s.x===11&&s.y===12&&!$('modal').open"));
+ q.run('directional(0,-1)');assert(q.run("s.y===11&&new Set(s.party.map(p=>p.x+','+p.y)).size===3"));
+ const resumed=setup(JSON.parse(q.storage.get('yuris-spirit-wanderer-v1')));resumed.run('directional(0,1)');assert.equal(resumed.run('s.y'),12);
+});
+test('tap movement passes companions in the only doorway and reforms the line',()=>{
+ q.reset();q.run("s.enemies=[];E.recruit(s,'ed');E.recruit(s,'celes');s.x=11;s.y=11;s.party.forEach((p,i)=>{p.x=11;p.y=11+i});s.openedDoors['11,12']=true;render();interaction(11,17)");
+ assert(q.run("s.x===11&&s.y===17&&!moving&&!$('modal').open&&new Set(s.party.map(p=>p.x+','+p.y)).size===3"));
+ assert(q.run('s.party.every((p,i)=>!i||E.distance(p,s.party[i-1])===1)'));
+});
 console.log(JSON.stringify({passed}));
