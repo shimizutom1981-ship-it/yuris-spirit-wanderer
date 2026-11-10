@@ -34,11 +34,11 @@ talk=function(n){
  for(const [k,text] of Object.entries(d.topics))if(s.heard.includes(k)||d.intro.includes(k)||k==='機霊')c.push([k,()=>tell(n,k,text)]);
  if(n.id==='mira')c.push(['弓と矢を買う',()=>shop(n,['bow','longbow','leather',['arrows',4,12]])],['旅支度を借りる',()=>{s.flags.mira=true;tell(n,'旅支度','奥の箱に弓、革の鎧、矢を用意した。使ってちょうだい。弓は5マス届くけれど、木や壁の向こうには当たらない。')}]);
  if(n.id==='miller'&&s.flags.waterwheel)c.push(['水の証を受け取る',()=>{rewardEvidence('water','水の証');tell(n,'水の証','水車が戻った。村で守ってきた記録を君に託そう。石の記憶は鉱山、風の記憶は修道院だ。')}]);
- if(n.id==='trader')c.push(['品物を見る',()=>shop(n,['longbow','plate','crystalstaff','moon_ring','silver_ring','ward_charm','spirit_charm','herb_charm',['arrows',4,12],['herbs',3,2],['parts',4,1],['wood',3,2]])]);
+ if(n.id==='trader')c.push(['品物を見る',()=>shop(n,['longbow','plate','crystalstaff','moon_ring','silver_ring','ward_charm','spirit_charm','herb_charm',['arrows',4,12],['herbs',3,2],['parts',4,1],['wood',3,2],['rope',6,1],['torches',2,2]])]);
  if(n.id==='abbot')c.push(['霊術の道具を買う',()=>shop(n,['staff','robe','moon_ring','spirit_charm',['herbs',3,2]])]);
  if(n.id==='host'||n.id==='miller')c.push(['食料・薬草',()=>shop(n,[['food',3,3],['herbs',3,2],['parts',4,1],['wood',3,2]])]);
  if(n.id==='host')c.push(['宿泊する　5G',()=>{if(s.combat.active||s.gold<5){show(n.name,'今は泊まれないようだね。',[['戻る',()=>talk(n)]]);return}s.gold-=5;s.party.forEach(p=>{p.hp=p.max;p.mp=Gear.stats(p).maxmp});s.turn+=320-s.turn%320;E.say(s,'波音を聴きながら眠り、朝を迎えた。');close()}]);
- if(n.id==='noa'&&s.flags.vent)c.push(['記憶を託して',()=>{rewardEvidence('stone','石の証');if(!s.party.some(p=>p.id==='noa')){s.party.push({id:'noa',name:'ノア',role:'記憶の機霊',x:n.x,y:n.y,hp:36,max:36,mp:10,atk:6});Gear.ensure(s);s.party.at(-1).gear.weapon='staff';s.party.at(-1).pack.staff=1;}tell(n,'石の証','《君たちと行こう。命令の続きを、僕自身で選びたい》')}]);
+ if(n.id==='noa'&&s.flags.vent)c.push(['記憶を託して',()=>{rewardEvidence('stone','石の証');if(!s.party.some(p=>p.id==='noa')&&!s.bench?.noa){s.party.push({id:'noa',name:'ノア',role:'記憶の機霊',x:n.x,y:n.y,hp:36,max:36,mp:10,atk:6});Gear.ensure(s);s.party.at(-1).gear.weapon='staff';s.party.at(-1).pack.staff=1;}tell(n,'石の証','《君たちと行こう。命令の続きを、僕自身で選びたい》')}]);
  c.push(['別れる',close]);let intro=d.intro;if(n.id==='noa'&&!s.flags.vent)intro='《……空気……通気口……声が……届かない》';if(s.flags.finalEnding)intro+='\n'+(s.flags.finalEnding==='connect'?'遠くの機霊の声が、穏やかに重なっている。':'潮鳴りが静まり、人の暮らしの音が戻っている。');show(n.name,intro,c,true);
 };
 inspect=function(o){
@@ -78,5 +78,6 @@ const equipFn=Gear.equip;Gear.equip=(p,id)=>{if(s.combat.active&&!E.canAct(s,p.i
 directional=function(dx,dy){if(mode==='magic'&&!$('modal').open){const p=active(),pos=E.position(s,p),enemy=E.enemy(s,pos.x+dx,pos.y+dy);if(enemy){interaction(enemy.x,enemy.y);return}}oldDirection(dx,dy)};
 let holdTimer=null;function stopHold(){clearTimeout(holdTimer);holdTimer=null}
 document.querySelectorAll('[data-dir]').forEach(b=>{b.onpointerdown=ev=>{ev.preventDefault();stopHold();const d=b.dataset.dir.split(',').map(Number);directional(...d);const again=()=>{if(s.combat.active){stopHold();return}directional(...d);if(!s.combat.active)holdTimer=setTimeout(again,150)};if(!s.combat.active)holdTimer=setTimeout(again,300);b.setPointerCapture?.(ev.pointerId)};b.onpointerup=stopHold;b.onpointercancel=stopHold;b.onlostpointercapture=stopHold;b.onclick=ev=>{if(ev.detail===0)directional(...b.dataset.dir.split(',').map(Number))}});
+globalThis.Adv={dialogue,keywordList,names,note,show,tell,obtain,shop,supplies,active,spellbook,setUsed:v=>{usedItem=v},isTalk:()=>conversation};
 chooseMode('explore');render();save();
 })();

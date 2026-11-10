@@ -31,3 +31,71 @@ a=encounter(70,18);a.turn=160;assert(!E.detectCombat(a));a.enemies[0].x=76;asser
 a=encounter(6,20);a.enemies[0].x=6;a.enemies[0].y=18;assert(!E.detectCombat(a));a.openedDoors['6,19']=true;assert(E.detectCombat(a));
 a=encounter(70,18);a.enemies[0].hp=0;assert(!E.detectCombat(a));
 console.log('PASS encounter: screen edge, stepping into view, closed/open door, night/light, defeated enemy; player acts first');
+
+// ---- v0.5: far bank, skiff, underground, stances, partings, furniture, fishing.
+const openAll=st=>{st.flags.gate=true;for(const b of E.World.buildings)st.openedDoors[b.door.join(',')]=true;return st};
+const reach=(st,o)=>[[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy])=>st.x===o.x+dx&&st.y===o.y+dy||E.path(st,o.x+dx,o.y+dy).length);
+// The far bank cannot be walked to; from its landing everything is reachable once the rubble and chasm are dealt with.
+let far=openAll(safe());assert(!E.path(far,42,45).length,'far bank must need the skiff');assert(E.floats(44,74),'rivers meet');
+far.x=42;far.y=45;far.party[0].x=42;far.party[0].y=45;
+const isle=[...E.npcs,...E.objs].filter(o=>o.isle);assert(isle.length>=12);
+for(const o of isle){const t=E.terrain(o.x,o.y);assert(!['water','wall','rock','tree','door'].includes(t),o.id+' on '+t);assert.equal([...E.npcs,...E.objs].filter(p=>p.x===o.x&&p.y===o.y).length,1,o.id+' shares a tile')}
+assert(!reach(far,E.objs.find(o=>o.id==='deepcore')),'core is behind rubble and chasm');
+far.opened.push('cave-rubble');assert(!reach(far,E.objs.find(o=>o.id==='deepcore')),'chasm still blocks');assert(reach(far,E.objs.find(o=>o.id==='cavechest-c')));
+far.opened.push('cave-chasm');for(const o of isle)assert(reach(far,o),o.id+' unreachable from landing');
+for(const e of E.World.caveFoes)assert.equal(E.terrain(e.x,e.y),'cave');
+console.log('PASS far bank: skiff-only, '+isle.length+' targets reachable from the landing, rubble and chasm gate the core');
+// Migration from v0.4 adds the underground once and rescues anyone on the strip that became river.
+const v4=E.normalize(E.fresh());v4.worldVersion=4;v4.enemies=v4.enemies.filter(e=>!e.id.startsWith('cave-'));delete v4.boat;delete v4.rings;v4.x=44;v4.y=74;v4.party[0].x=44;v4.party[0].y=74;const count=v4.enemies.length;
+E.normalize(v4);assert.equal(v4.worldVersion,5);assert.equal(v4.enemies.length,count+5);assert.deepEqual(point(v4),{x:47,y:74});assert(E.pass(v4,v4.x,v4.y));assert.deepEqual(v4.boat,{x:121,y:75});assert(E.valid(v4));
+const again=JSON.stringify(v4);E.normalize(v4);assert.equal(JSON.stringify(v4),again);
+console.log('PASS migration v0.4 to v0.5: underground foes once, strip rescue, skiff and stones initialised, idempotent');
+// Skiff: needs the shipwright's leave; sails water and under bridges; steps ashore; nobody fights from the water.
+let boat=team();boat.x=121;boat.y=74;boat.party.forEach((p,i)=>{p.x=121+i;p.y=74});E.normalize(boat);
+assert(!E.board(boat),'no boarding without permission');boat.flags.boat=true;assert(E.board(boat));assert(boat.aboard);assert.deepEqual(point(boat),{x:121,y:75});
+boat.enemies=[{id:'shore',x:118,y:74,hp:30,max:30,atk:5,type:'wolf'}];assert(!E.detectCombat(boat));
+assert(!E.path(boat,42,45).length);const voyage=E.travelPath(boat,42,45);assert(voyage.length>100,'voyage '+voyage.length);
+assert(voyage.slice(0,-1).every(([x,y])=>E.floats(x,y)));
+boat.enemies=[];for(const [x,y]of voyage)assert(E.move(boat,x-boat.x,y-boat.y),'sail step '+x+','+y);
+assert(!boat.aboard);assert.deepEqual(point(boat),{x:42,y:45});assert(E.floats(boat.boat.x,boat.boat.y));assert.equal(E.distance(boat,boat.boat),1);
+for(let i=0;i<6;i++)assert(E.move(boat,-1,0));for(const p of boat.party)assert(E.pass(boat,p.x,p.y)||p===boat.party[0],p.id+' left on the water');
+assert.equal(new Set(boat.party.map(p=>p.x+','+p.y)).size,4);
+const under=team();under.flags.boat=true;under.x=124;under.y=74;under.party.forEach((p,i)=>{p.x=124-i;p.y=74});under.boat={x:124,y:75};assert(E.board(under));assert(E.move(under,1,0));assert.equal(E.terrain(under.x,under.y),'bridge');assert(E.move(under,1,0)&&E.move(under,1,0));assert.equal(E.terrain(under.x,under.y),'water');
+console.log('PASS skiff: permission, '+voyage.length+'-step voyage to the far bank, landing, followers disembark, passes under the bridge, no combat afloat');
+// Underground is dark by day: two tiles without light, the whole screen with it.
+let cave=safe();cave.x=21;cave.y=56;cave.party[0].x=21;cave.party[0].y=56;cave.enemies=[{id:'lurker',x:25,y:56,hp:30,max:30,atk:5,type:'wolf'}];
+assert(E.World.under(21,56));assert(!E.isNight(cave));assert(!E.detectCombat(cave));cave.lightUntil=cave.turn+80;assert(E.detectCombat(cave));
+cave=safe();cave.x=21;cave.y=56;cave.party[0].x=21;cave.party[0].y=56;cave.enemies=[{id:'lurker',x:23,y:56,hp:30,max:30,atk:5,type:'wolf'}];assert(E.detectCombat(cave));
+assert(!E.visible(cave,{x:21,y:49},{x:19,y:56}),'rock hides the hall');
+console.log('PASS underground: darkness, torchlight, rock occlusion');
+// Stances: one automatic action each per round; the leader is never automatic.
+function fightTeam(){const t=team();t.x=60;t.y=18;[[60,18],[60,19],[59,18],[59,19]].forEach(([x,y],i)=>{t.party[i].x=x;t.party[i].y=y});t.enemies=[{id:'dummy',x:63,y:18,hp:200,max:200,atk:1,type:'wolf'}];E.beginCombat(t);return t}
+let t=fightTeam();const ed=t.party[1],celes=t.party[2],noa=t.party[3];ed.tactic='assault';celes.tactic='ranged';noa.tactic='guard';t.party[0].tactic='assault';
+assert(!E.autoAct(t,'yuris'));const mp=celes.mp,edAt=point(ed),noaAt=point(noa);assert.equal(E.runAuto(t),3);
+assert.deepEqual(t.combat.acted.sort(),['celes','ed','noa']);assert.equal(celes.mp,mp-3);assert.equal(t.enemies[0].hp,200-14-E.Gear.stats(celes).power);
+assert.equal(E.distance(ed,t.enemies[0]),E.distance(edAt,t.enemies[0])-1,'assault closes in');assert.deepEqual(point(noa),noaAt,'guard holds near the leader');
+assert.equal(E.runAuto(t),0);assert(E.waitActor(t,'yuris'));assert.equal(t.combat.round,2);
+t=fightTeam();t.party[2].tactic='ranged';t.party[1].hp=5;const before=t.enemies[0].hp;assert(E.autoAct(t,'celes'));assert(t.party[1].hp>5,'ranged stance heals the badly hurt first');assert.equal(t.enemies[0].hp,before);
+t=fightTeam();t.party.slice(1).forEach(p=>p.tactic='assault');t.enemies[0].x=62;t.party[0].hp=0;let guard=0;while(t.combat.active&&guard++<60)assert(E.runAuto(t)<=8);assert(!t.combat.active&&t.enemies[0].hp===0,'a fully automatic party finishes the fight in bounded batches');
+console.log('PASS stances: assault closes and strikes, ranged casts and heals, guard holds, leader stays manual');
+// A companion may leave with their gear and return with it.
+let band=safe();E.recruit(band,'ed');E.normalize(band);E.Gear.add(band,'axe',1,band.party[1]);assert(E.Gear.equip(band.party[1],'axe'));band.party[1].x=13;band.party[1].y=18;
+assert(!E.leave(band,'yuris'));assert(E.leave(band,'ed'));assert.equal(band.party.length,1);assert.deepEqual(point(E.npc(band,13,18)),{x:13,y:18});
+const kept=JSON.parse(JSON.stringify(band));assert(E.recruit(kept,'ed'));assert.equal(kept.party[1].gear.weapon,'axe');assert(!kept.bench.ed);assert(!E.recruit(kept,'ed'));
+console.log('PASS partings: leave, stand where left, rejoin with own gear after reload');
+// Furniture shifts to any free neighbour, never onto a door, wall or another object.
+let room=openAll(safe());room.x=18;room.y=24;room.party[0].x=18;room.party[0].y=24;const chair=E.obj(room,17,24);assert.equal(chair.type,'chair');assert(E.movable(chair));
+assert(!E.moveObject(room,chair,16,24),'table in the way');assert(!E.moveObject(room,chair,18,24),'own tile');assert(E.moveObject(room,chair,17,25));assert(!E.obj(room,17,24));assert.equal(E.obj(room,17,25).id,'inn-chair');
+assert(!E.movable(E.obj(room,16,24)),'tables stay put');
+room.moved['inn-chair']={x:16,y:27};room.x=16;room.y=26;room.party[0].x=16;room.party[0].y=26;assert.equal(E.terrain(16,28),'door');assert(!E.moveObject(room,E.obj(room,16,27),16,28),'never onto a door');
+console.log('PASS furniture: sideways shift, blocked by objects, own tile and doors');
+// Fishing needs a rod and water beside you; three casts always include a catch.
+let angler=safe();angler.x=121;angler.y=74;angler.party[0].x=121;angler.party[0].y=74;assert(!E.fish(angler,121,75));angler.rod=1;assert(!E.fish(angler,121,73));const food=angler.food;for(let i=0;i<3;i++)assert(E.fish(angler,121,75));assert(angler.food>food);
+console.log('PASS fishing: rod, adjacent water, catch within three casts');
+// Dusk: the farmer walks to the eating house table, then to bed, one tile at a time.
+let dusk=openAll(safe());dusk.x=125;dusk.y=24;dusk.party[0].x=125;dusk.party[0].y=24;dusk.turn=158;let prev=E.people(dusk);
+const stroll=n=>{for(let i=0;i<n;i++){E.tick(dusk);const now=E.people(dusk);for(const p of now)assert(E.distance(prev.find(q=>q.id===p.id),p)<=1,'no teleport '+p.id);prev=now}};
+stroll(62);assert(E.isEvening(dusk)&&E.isNight(dusk));assert.deepEqual(point(E.people(dusk).find(n=>n.id==='farmer')),{x:119,y:17});
+stroll(90);assert(!E.isEvening(dusk)&&E.isNight(dusk));assert.deepEqual(point(E.people(dusk).find(n=>n.id==='farmer')),{x:122,y:16});
+stroll(120);assert(!E.isNight(dusk));assert.deepEqual(point(E.people(dusk).find(n=>n.id==='farmer')),{x:119,y:28});
+console.log('PASS daily round: field by day, eating-house table at dusk, bed at night');

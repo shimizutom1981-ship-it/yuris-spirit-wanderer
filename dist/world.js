@@ -96,14 +96,23 @@ function compactPoint(x,y){
 for(const list of [buildings,npcs,objects,foes])for(const item of list){const p=expandPoint(item);item.x=p.x;item.y=p.y;if(item.door){const d=expandPoint({x:item.door[0],y:item.door[1]});item.door=[d.x,d.y]}}
 for(const r of regions){const p=expandPoint({x:r[1],y:r[2]});r[1]=p.x;r[2]=p.y}
 for(const [id,[x,y]]of Object.entries(night)){const p=expandPoint({x,y});night[id]=[p.x,p.y]}
+// v0.5: the far bank no bridge reaches. A hermit's hut and a rock massif whose
+// carved tunnels form the underground. Reached only by river skiff.
+const hut={id:'hermithut',x:24,y:38,w:7,h:6,door:[27,43],name:'隠者の庵',roof:'#5f6f5a'};
+const carve=[[21,50,21,54],[17,54,25,57],[9,56,17,56],[7,54,11,60],[25,55,31,55],[30,53,35,58],[21,57,21,62],[15,62,27,65],[27,64,33,64],[31,62,35,70],[8,63,15,63],[7,63,11,70]];
+function caveTerrain(x,y){if(x<5||x>37||y<50||y>72)return null;return carve.some(([a,b,c,d])=>x>=a&&x<=c&&y>=b&&y<=d)?'cave':'rock'}
+function under(x,y){return caveTerrain(x,y)==='cave'}
+buildings.push(hut);regions.push(['離れ野',22,47]);
 function terrain(x,y){
  if(x<2||y<2||x>=W-2||y>=H-1)return 'water';
+ const cave=caveTerrain(x,y);if(cave)return cave;
+ if(inside(x,y,hut))return hut.door[0]===x&&hut.door[1]===y?'door':x===hut.x||y===hut.y||x===hut.x+hut.w-1||y===hut.y+hut.h-1?'wall':'floor';
  if(x<44&&y<36)return compactTerrain(x,y);
  const old=compactPoint(x,y),t=old?compactTerrain(old.x,old.y):null;
  // Keep every previously walkable tile, interior, and object in its local setting.
  if(t&&t!=='water')return t==='bridge'?'road':t;
  const road=((y===18||y===19)&&x>=39&&x<=125)||((y===24||y===25)&&x>=110&&x<=210)||((x===125||x===126)&&y>=18&&y<=116)||((x===209||x===210)&&y>=16&&y<=116)||((y===115||y===116)&&x>=110&&x<=224)||((x===222||x===223)&&y>=116&&y<=165);
- const river=(x>=43&&x<=46&&y<74)||(y>=75&&y<=78);
+ const river=(x>=43&&x<=46&&y<75)||(y>=75&&y<=78); // v0.5: the two rivers now meet
  if(road)return river?'bridge':'road';
  if(river)return 'water';
  if(x>=195&&x<=207&&y>=153&&y<=162)return 'water';
@@ -140,6 +149,33 @@ objects.push(
  {id:'plainsway',x:49,y:20,type:'sign',name:'大草原の道標',text:'東：風渡りの大草原を越えてリーネ村。\n道中は獣や機霊がいる。姿が見えたら隊列を止めて戦おう。'},
  {id:'riverway',x:127,y:68,type:'sign',name:'蒼の川の道標',text:'北：リーネ村。南：橋と湿原を越えて風待ち港。\n西岸の焚き火で休み、食料と矢を確かめよう。'}
 );
+const caveFoes=[['cave-beast-a',19,56,30,5,'wolf'],['cave-guard-a',33,56,46,6,'golem'],['cave-beast-b',18,64,32,6,'wolf'],['cave-beast-c',24,63,32,6,'wolf'],['cave-guard-b',33,65,54,7,'golem']].map(([id,x,y,hp,atk,type])=>({id,x,y,hp,max:hp,atk,type}));
+npcs.push({id:'hermit',name:'隠者トウ',x:26,y:40,color:'#9aa07c',isle:true});
+// Evening gatherings: after dusk some people sit at a table before going to bed.
+const evening={farmer:[119,17],captain:[120,111]};
+objects.push(
+ {id:'ring-norvik',x:10,y:21,type:'stones',name:'霊流の環',action:'ring',place:'ノルヴィク'},
+ {id:'ring-liene',x:124,y:22,type:'stones',name:'霊流の環',action:'ring',place:'リーネ村'},
+ {id:'ring-abbey',x:212,y:20,type:'stones',name:'霊流の環',action:'ring',place:'水鏡修道院'},
+ {id:'ring-port',x:123,y:118,type:'stones',name:'霊流の環',action:'ring',place:'風待ち港'},
+ {id:'ring-tower',x:220,y:152,type:'stones',name:'霊流の環',action:'ring',place:'潮鳴りの岬'},
+ {id:'ring-isle',x:33,y:46,type:'stones',name:'霊流の環',action:'ring',place:'離れ野',isle:true},
+ {id:'ferrysign',x:122,y:73,type:'sign',name:'渡し場の立て札',text:'川舟は風待ち港の船大工ダンのもの。借りたい者は港で「舟」と尋ねること。\n舟は橋の下をくぐれる。川を西へ下ると、橋のかからない岸「離れ野」がある。'},
+ {id:'rod',x:119,y:65,type:'rod',name:'釣り竿',take:{rod:1},text:'旅人が置いていった釣り竿。水辺で使えば魚が釣れる。'},
+ {id:'bread',x:16,y:25,type:'bread',name:'焼きたてのパン',take:{food:1},owned:true,text:'宿の食卓のパン。黙って取れば、町の信用が下がる。'},
+ {id:'coil',x:127,y:118,type:'rope',name:'古いロープ',take:{rope:1},text:'船をつなぐための丈夫なロープ。'},
+ {id:'pick',x:213,y:108,type:'pick',name:'つるはし',take:{pick:1},text:'鉱夫のつるはし。崩れた岩を砕ける。'},
+ {id:'islesign',x:41,y:44,type:'sign',name:'離れ野の舟着き',isle:true,text:'西：隠者の庵。南：岩山の口。\n岩山の中は昼でも暗い。松明か灯火の術を。'},
+ {id:'hermitbook',x:28,y:39,type:'book',name:'隠者の覚え書き',isle:true,topic:'地下',text:'「岩山の地下には、灰石の鉱夫より古い坑道がある。崩れた岩はつるはしで、裂け目はロープで越えよ。奥で、まだ誰かが待っている。」'},
+ {id:'huttorch',x:25,y:41,type:'torch',name:'松明の束',take:{torches:2},isle:true,text:'油を染ませた松明。'},
+ {id:'cave-rubble',x:21,y:60,type:'rubble',name:'崩れた岩',solid:true,action:'rubble',isle:true},
+ {id:'cave-chasm',x:30,y:64,type:'chasm',name:'深い裂け目',solid:true,action:'chasm',isle:true},
+ {id:'cavechest-a',x:8,y:55,type:'chest',name:'坑夫の置き箱',loot:{torches:2,herbs:3},isle:true},
+ {id:'cavebook',x:10,y:59,type:'book',name:'煤けた日誌',isle:true,topic:'地下',text:'「掘り進むほど、石が歌う。下の広間の機霊は、我らが去ったあとも灯りを絶やさぬと約束した。」'},
+ {id:'cavechest-b',x:34,y:54,type:'chest',name:'守りの間の箱',loot:{ironshield:1,arrows:20},isle:true},
+ {id:'cavechest-c',x:8,y:69,type:'chest',name:'水のしたたる箱',loot:{crystalstaff:1,crystal:2},isle:true},
+ {id:'deepcore',x:33,y:68,type:'altar',name:'地下の霊核',action:'deepcore',isle:true}
+);
 function migrate(s){
  const previous=s.worldVersion||0;
  if(!previous){s.enemies.push(...foes.map(e=>{const p=compactPoint(e.x,e.y);return {...e,...p}}));s.arrows??=30;s.torches??=2;s.rope??=0;s.reputation??=0;s.heard??=['機霊','霊灯'];s.visited??=['ノルヴィク'];s.lightUntil??=0;s.turnStart??=s.turn;}
@@ -150,10 +186,17 @@ function migrate(s){
   s.enemies.push(...wildernessFoes.filter(e=>!s.enemies.some(q=>q.id===e.id)).map(e=>({...e})));
   s.worldVersion=4;s.log.unshift('街道の先に広い草原と森が続く。敵を見つけたら戦闘になる。');
  }
+ if((s.worldVersion||0)<5){
+  s.enemies.push(...caveFoes.filter(e=>!s.enemies.some(q=>q.id===e.id)).map(e=>({...e})));
+  for(const p of [s,...s.party,...s.enemies])if(p&&p.y===74&&p.x>=43&&p.x<=46)p.x=47; // strip that became river
+  s.worldVersion=5;s.log.unshift('古い立ち石「霊流の環」が目を覚ました。風待ち港の船大工は川舟を直しているらしい。');
+ }
+ s.rings??={};s.rod??=0;s.pick??=0;s.bench??={};s.boat??={x:121,y:75};s.aboard??=false;
  s.moved??={};s.heard??=[];s.evidence??={};s.visited??=[];s.containers??={};s.notes??=[];
 }
 function location(x,y){
  if(x<44&&y<36)return x>31&&y<13?'忘れられた霊堂':x>21?'東の森':'ノルヴィク';
+ if(x<43&&y>=36&&y<75)return under(x,y)?'離れ野の地下坑道':'川向こうの離れ野';
  if(x>=211&&y>=156)return '潮鳴りの灯台';
  if(x>=211&&y>=103&&y<=120)return '灰石の廃鉱';
  if(x>=202&&y<22)return '水鏡修道院';
@@ -168,5 +211,5 @@ function location(x,y){
  if(y>=35)return '南の大平原';
  return '風渡りの大草原';
 }
-root.WorldData={W,H,terrain,buildings,regions,npcs,objects,night,migrate,location,expandPoint,wildernessFoes};if(typeof module!=='undefined')module.exports=root.WorldData;
+root.WorldData={under,evening,caveFoes,hut,W,H,terrain,buildings,regions,npcs,objects,night,migrate,location,expandPoint,wildernessFoes};if(typeof module!=='undefined')module.exports=root.WorldData;
 })(typeof window==='undefined'?globalThis:window);

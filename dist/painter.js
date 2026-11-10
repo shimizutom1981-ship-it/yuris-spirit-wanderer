@@ -4,7 +4,7 @@
 function rect(g,c,x,y,w,h){g.fillStyle=c;g.fillRect(x,y,w,h)}
 function dots(g,c,points){for(const p of points)rect(g,c,p[0],p[1],p[2]||1,p[3]||1)}
 function shade(hex,f){if(!/^#[\da-f]{6}$/i.test(hex))hex='#65999b';return '#'+hex.slice(1).match(/../g).map(v=>Math.max(0,Math.min(255,Math.round(parseInt(v,16)*f))).toString(16).padStart(2,'0')).join('')}
-function tile(g,t,x=0,y=0){if(['flowers','field','orchard','sand','bridge','mountain','marsh'].includes(t)){extraTile(g,t,x,y);return}const seed=Math.abs((x*73+y*131)^((x+y)*17));
+function tile(g,t,x=0,y=0){if(t==='rock'){rect(g,'#2b2f33',0,0,16,16);rect(g,'#4a4f50',1,2,7,6);rect(g,'#5d6260',2,2,5,2);rect(g,'#41464a',9,5,6,7);rect(g,'#555a58',10,5,4,2);rect(g,'#3a3f42',2,10,6,5);rect(g,'#4c5152',3,10,4,1);return}if(t==='cave'){rect(g,'#3b3830',0,0,16,16);dots(g,'#4a463b',[[2,3,3],[9,7,4],[4,12,3],[12,13,2]]);dots(g,'#2c2a24',[[6,5,2],[13,2],[1,9,2],[10,11]]);return}if(['flowers','field','orchard','sand','bridge','mountain','marsh'].includes(t)){extraTile(g,t,x,y);return}const seed=Math.abs((x*73+y*131)^((x+y)*17));
  if(t==='grass'||t==='tree'){
  rect(g,'#4e7037',0,0,16,16);for(let n=0;n<8;n++){let xx=(seed+n*7)%16,yy=(seed*3+n*11)%16;rect(g,n%2?'#5d7c3e':'#3d602f',xx,yy,2,1);if(n%3===0)rect(g,'#6d8947',xx+1,yy-1,1,1)}
  if(t==='tree'){rect(g,'#304829',3,11,12,4);rect(g,'#453923',7,8,3,7);rect(g,'#775532',8,10,1,4);rect(g,'#1b3928',3,4,11,8);rect(g,'#254a2b',1,6,13,5);rect(g,'#2b512d',4,1,8,11);rect(g,'#386135',2,4,11,5);rect(g,'#446f38',5,2,6,6);dots(g,'#628749',[[5,2,4],[3,5,2],[9,4,2],[6,7,3],[11,8]]);dots(g,'#20432a',[[2,10,3],[11,11,2],[5,12,5],[10,2],[7,9,2]])}return;
@@ -32,6 +32,15 @@ function sprite(g,color='#65999b',kind='person',id='',turn=0,hp){
 }
 function object(g,t,s={}){
  const r=(c,x,y,w,h)=>rect(g,c,x,y,w,h);r('#283c2a',3,14,11,1);
+ if(t==='boat'){r('#1d3a52',0,13,16,3);r('#3b2a1c',0,8,16,6);r('#8a633a',1,8,14,5);r('#c09a5e',0,8,16,1);r('#5d4128',3,10,10,2);r('#3b2a1c',1,13,14,1);r('#a58a5a',12,3,1,6);r('#cdb98a',11,2,3,2);return}
+ if(t==='stones'){r('#6f7a74',2,4,3,10);r('#a9b3a4',2,4,2,8);r('#6f7a74',11,4,3,10);r('#a9b3a4',11,4,2,8);r('#7d8a82',6,2,4,3);r('#b9c3b0',6,2,3,1);r(s.rings&&Object.keys(s.rings).length?'#9fe3c8':'#56706a',6,8,4,4);r('#e2f5e2',7,9,2,2);return}
+ if(t==='rubble'){r('#3a3f42',1,6,14,9);r('#6a6f6b',2,7,5,4);r('#858a82',3,7,3,1);r('#5b605e',8,5,6,5);r('#7c817a',9,5,3,1);r('#4d5254',4,11,7,3);r('#70756f',5,11,3,1);return}
+ if(t==='chasm'){r('#0b0d12',0,2,16,12);r('#1b2029',0,2,16,2);r('#1b2029',0,12,16,2);r('#2c323a',2,1,4,1);r('#2c323a',9,14,5,1);return}
+ if(t==='torch'){r('#6b4a2c',7,6,2,9);r('#8f6a3d',7,6,1,8);r('#c9682e',6,2,4,5);r('#f0b452',7,1,2,4);r('#fbe7a2',7,3,1,2);return}
+ if(t==='bread'){r('#7a5226',3,8,10,5);r('#c08a48',3,7,10,4);r('#e0b46c',4,7,8,1);r('#8f6230',5,9,1,2);r('#8f6230',8,9,1,2);r('#8f6230',11,9,1,2);return}
+ if(t==='rod'){r('#8a6a3c',3,13,10,1);r('#b08c50',4,3,1,10);r('#b08c50',5,2,6,1);r('#dfe6e0',11,3,1,7);r('#c0563a',10,10,3,2);return}
+ if(t==='pick'){r('#7a5a36',7,3,2,12);r('#a07a48',7,3,1,11);r('#9aa3a0',2,3,12,2);r('#c8d0c8',2,3,11,1);r('#6d7674',2,5,2,2);r('#6d7674',12,5,2,2);return}
+ if(t==='rope'){r('#8f7444',3,5,10,8);r('#c2a468',4,5,8,1);r('#6a5430',5,7,6,4);r('#c2a468',4,9,8,1);r('#a88b52',11,11,3,3);return}
  if(t==='bell'){r('#60452f',1,1,2,14);r('#60452f',13,1,2,14);r('#b5985b',1,1,14,2);r('#d3b96d',5,4,6,7);r('#ebd795',6,4,2,5);r('#9d7d42',3,11,10,2);r('#d6c38f',7,13,2,2);return}
  if(t==='wheel'){r('#644e34',1,1,14,14);r('#bb995f',2,2,12,12);r('#4a3f2c',4,4,8,8);r('#c8ab73',7,1,2,14);r('#c8ab73',1,7,14,2);r('#453c2f',7,7,2,2);return}
  if(t==='lever'){r('#848c7d',3,11,10,4);r('#b4b6a0',4,10,8,2);r('#655440',7,4,2,8);r('#d3aa63',6,2,4,3);return}
