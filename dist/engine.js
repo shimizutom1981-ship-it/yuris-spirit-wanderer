@@ -153,7 +153,7 @@ function sailPath(s,tx,ty){if(tx<0||ty<0||tx>=W||ty>=H)return [];const land=!flo
   for(const [a,b]of [[x+1,y],[x-1,y],[x,y+1],[x,y-1]]){if(a<0||b<0||a>=W||b>=H)continue;const n=b*W+a;if(prev[n]!==-1||!floats(a,b)||enemy(s,a,b)||npc(s,a,b))continue;prev[n]=k;q.push(n)}}
  return []}
 // ---- Companions may leave and return with their own gear.
-function leave(s,id){normalize(s);const i=s.party.findIndex(p=>p.id===id);if(i<1||s.combat.active||s.aboard)return false;const p=s.party[i],at=position(s,p);s.party.splice(i,1);s.bench??={};s.bench[id]=p;s.npcPositions[id]={x:at.x,y:at.y};say(s,p.name+'は隊を離れた。話しかければ、また一緒に旅ができる。');return true}
+function leave(s,id){if(s.chapter)return false;normalize(s);const i=s.party.findIndex(p=>p.id===id);if(i<1||s.combat.active||s.aboard)return false;const p=s.party[i],at=position(s,p);s.party.splice(i,1);s.bench??={};s.bench[id]=p;s.npcPositions[id]={x:at.x,y:at.y};say(s,p.name+'は隊を離れた。話しかければ、また一緒に旅ができる。');return true}
 // ---- Combat stances. The leader is always commanded by hand.
 const tactics={manual:'命令',assault:'突撃',ranged:'後衛',guard:'護衛'};
 function autoAct(s,id){normalize(s);const p=s.party.find(p=>p.id===id);if(!p||p===s.party[0]||!s.combat.active||!canAct(s,id)||!p.tactic||p.tactic==='manual')return false;

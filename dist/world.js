@@ -87,7 +87,8 @@ const foes=[
 ['roadwolf',75,23,24,4,'wolf'],['forestwolf',72,45,28,5,'wolf'],['mineguard',99,54,50,6,'golem'],['minewolf',100,58,25,4,'wolf'],['coastguard',99,66,44,5,'golem'],['marshwolf',52,68,30,5,'wolf']
 ].map(([id,x,y,hp,atk,type])=>({id,x,y,hp,max:hp,atk,type}));
 // Insert wilderness between intact settlements. Never scale buildings or sprites.
-const W=232,H=168;
+const valley=root.NorvikMap||require('./norvik.js');
+const W=valley.west+valley.width,H=168;
 function expandPoint(p){return {...p,x:p.x+(p.x>=78?120:p.x>=46?64:0),y:p.y+(p.y>=65?88:p.y>=37?56:0)}}
 function compactPoint(x,y){
  if(x>=46&&x<110||x>=142&&x<198||y>=37&&y<93||y>=121&&y<153)return null;
@@ -136,7 +137,8 @@ function kilnFloor(x,y){return kilnPlan[y-kilnY]?.[x-kilnX]==='.'}
 function under(x,y){return kilnFloor(x,y)||caveTerrain(x,y)==='cave'}
 buildings.push(hut);regions.push(['離れ野',22,47]);
 function terrain(x,y){
- if(x<2||y<2||x>=W-2||y>=H-1)return 'water';
+ if(x>=valley.west)return valley.terrain(x,y);
+ if(x<2||y<2||x>=valley.west-2||y>=H-1)return 'water';
  if(kilnFloor(x,y))return 'kiln';
  const cave=caveTerrain(x,y);if(cave)return cave;
  if(inside(x,y,hut))return hut.door[0]===x&&hut.door[1]===y?'door':x===hut.x||y===hut.y||x===hut.x+hut.w-1||y===hut.y+hut.h-1?'wall':'floor';
@@ -254,6 +256,7 @@ function migrate(s){
  s.moved??={};s.heard??=[];s.evidence??={};s.visited??=[];s.containers??={};s.notes??=[];
 }
 function location(x,y){
+ if(x>=valley.west)return valley.location(x,y);
  if(kilnFloor(x,y))return y>=56?'燕の登り窯・窯出し場':y>40?'燕の登り窯・風道':'燕の登り窯・乾燥室';
  if(x<44&&y<36)return x>31&&y<13?'忘れられた霊堂':x>21?'東の森':'ノルヴィク';
  if(x<43&&y>=36&&y<75)return under(x,y)?'離れ野の地下坑道':'川向こうの離れ野';
@@ -271,5 +274,6 @@ function location(x,y){
  if(y>=35)return '南の大平原';
  return '風渡りの大草原';
 }
-root.WorldData={under,evening,caveFoes,hut,W,H,terrain,buildings,regions,npcs,objects,night,migrate,location,expandPoint,wildernessFoes};if(typeof module!=='undefined')module.exports=root.WorldData;
+buildings.push(...valley.buildings);objects.push(...valley.objects);npcs.push(...valley.npcs);
+root.WorldData={valley,under,evening,caveFoes,hut,W,H,terrain,buildings,regions,npcs,objects,night,migrate,location,expandPoint,wildernessFoes};if(typeof module!=='undefined')module.exports=root.WorldData;
 })(typeof window==='undefined'?globalThis:window);

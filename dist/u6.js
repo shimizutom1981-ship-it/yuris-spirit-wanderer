@@ -93,7 +93,7 @@ inspect=function(o){
 };
 
 // ---- Look never acts: it only describes what is there.
-const ground={kiln:'靴の下で、赤い煉瓦に積もった灰が鳴る。',grass:'草が風に揺れている。',flowers:'小さな花が咲いている。',tree:'枝葉の重なる木。通り抜けられない。',water:'冷たい水が流れている。舟があれば進める。',road:'旅人の足跡が残る道。',bridge:'木の橋。下を舟がくぐれる。',wall:'厚い石の壁。',floor:'磨かれた床板。',door:'扉だ。隣から開け閉めできる。',stone:'古い敷石。',mountain:'険しい岩山。',sand:'潮の香りのする砂。',marsh:'足を取られる湿原。',field:'よく耕された畑。',orchard:'実のなる木々。',rock:'硬い岩盤。',cave:'湿った坑道の床。'};
+const ground={snow:'雪を踏むと、長靴の下できゅっと鳴る。',snowTrack:'吹きだまりの間に人の踏み跡が続いている。',winterField:'雪が解けるのを待つ畝が並んでいる。',kiln:'靴の下で、赤い煉瓦に積もった灰が鳴る。',grass:'草が風に揺れている。',flowers:'小さな花が咲いている。',tree:'枝葉の重なる木。通り抜けられない。',water:'冷たい水が流れている。舟があれば進める。',road:'旅人の足跡が残る道。',bridge:'木の橋。下を舟がくぐれる。',wall:'厚い石の壁。',floor:'磨かれた床板。',door:'扉だ。隣から開け閉めできる。',stone:'古い敷石。',mountain:'険しい岩山。',sand:'潮の香りのする砂。',marsh:'足を取られる湿原。',field:'よく耕された畑。',orchard:'実のなる木々。',rock:'硬い岩盤。',cave:'湿った坑道の床。'};
 const kinds={chest:'ふたのついた箱。「使う」で開けられる。',book:'読むことができる。',sign:'文字が書かれている。',lever:'引けそうだ。',well:'水をくめる。',camp:'火を囲んで休める。',stones:'古い立ち石の環。',altar:'霊流が脈打っている。',bed:'眠るための寝台。',lamp:'霊流でともる灯り。',bell:'三つの音色を持つ鐘。',wheel:'川の力を受ける車輪。',herb:'摘めそうな薬草。',crystal:'澄んだ霊晶。',gate:'古い門。'};
 function describe(o){
  if(o.id==='millwheel'&&s.flags.waterwheel)return '村の水車。軸受けが車輪を支え、石臼が回っている。';
@@ -192,15 +192,15 @@ render=function(){
 // ---- Map: standing stones, skiff, the far bank.
 $('map').onclick=()=>{
  A.show('街道と荒野 / 旅の地図','白＝現在地　橙＝野営地　水色＝触れた霊流の環　茶＝川舟。蒼の川は舟で下れる。',[['閉じる',close]]);
- const cv=document.createElement('canvas'),k=3;cv.width=E.W*k;cv.height=E.H*k;cv.className='mapcanvas';const ctx=cv.getContext('2d');
+ const cv=document.createElement('canvas'),k=3;cv.width=E.World.valley.west*k;cv.height=E.H*k;cv.className='mapcanvas';const ctx=cv.getContext('2d');
  const col={grass:'#698254',flowers:'#698254',marsh:'#476a5b',field:'#a49a5b',orchard:'#516844',water:'#38697c',road:'#c3ad77',bridge:'#e2c58b',wall:'#b6aa86',tree:'#354e36',floor:'#9e8259',door:'#a58a55',stone:'#8a8e78',mountain:'#6c6a64',sand:'#b9ab7a',rock:'#55554f',cave:'#55554f',kiln:'#966a50'};
- for(let y=0;y<E.H;y++)for(let x=0;x<E.W;x++){ctx.fillStyle=col[E.terrain(x,y)]||'#6b7b4c';ctx.fillRect(x*k,y*k,k,k)}
+ for(let y=0;y<E.H;y++)for(let x=0;x<E.World.valley.west;x++){ctx.fillStyle=col[E.terrain(x,y)]||'#6b7b4c';ctx.fillRect(x*k,y*k,k,k)}
  ctx.font='11px monospace';
  for(const [name,x,y]of E.World.regions){const lx=Math.max(2,Math.min(cv.width-name.length*11-8,x*k-5)),ly=Math.max(15,y*k);ctx.fillStyle='#18252d';ctx.fillRect(lx,ly-12,name.length*11+7,16);ctx.fillStyle='#f4e8be';ctx.fillText(name,lx+3,ly)}
  for(const o of E.objs){if(o.type==='camp'){ctx.fillStyle='#f4ae62';ctx.fillRect(o.x*k-2,o.y*k-2,5,5)}if(o.action==='ring'&&s.rings[o.id]){ctx.fillStyle='#9fe3e0';ctx.fillRect(o.x*k-2,o.y*k-2,6,6)}}
  ctx.fillStyle='#7a4f2a';ctx.fillRect(s.boat.x*k-2,s.boat.y*k-2,6,6);ctx.fillStyle='#fff';ctx.fillRect(s.x*k-3,s.y*k-3,7,7);$('mb').append(cv);
 };
-$('help').onclick=()=>A.show('霊流の旅人 / 遊び方','【歩く】矢印・十字ボタン、または地図をタップ。人や物をタップすると近づいて話す・調べる。仲間とは場所を譲り合うので、狭い通路でも引き返せる。\n【コマンド】見る＝説明を読むだけ／話す／使う＝扉・箱・装置・舟、自分を選ぶと持ち物／取る＝地面や机の品を拾う／動かす＝椅子や樽を隣のマスへ／置く＝持ち物を足元に／攻撃／術／休む。押したあと対象をタップ、または矢印でカーソルを動かしてA。Bで戻る。\n【会話】話題のボタンのほか、聞いた言葉を入力して尋ねられる（例：舟、隠者、霊流の環）。「仲間」で誘い、「さようなら」で終える。住人は昼は仕事場、日が暮れると食堂や宿に寄り、夜更けに寝床へ歩く。\n【戦闘】敵が見えると同じ地図で始まり、仲間が一人ずつ行動。仲間との位置交換は操作した人の1行動。メニューの「隊列」で仲間ごとに作戦（命令・突撃・後衛・護衛）を決め、別れることもできる。\n【旅】霊流の環は一度触れると、触れた環どうしを行き来できる。風待ち港の船大工から川舟を借りれば、蒼の川を下って離れ野へ。地下坑道は暗いので松明を。\n保存はこのブラウザーに自動。前の記録も引き継ぐ。',[['冒険に戻る',close],['最初から（確認）',()=>A.show('始め直す？','現在の記録を消して、このゲームを最初から始めます。',[['始め直す',()=>{s=E.fresh();prepareState();selected='yuris';chooseMode('explore');close()}],['やめる',close]])]]);
+$('help').onclick=()=>A.show('霊流の旅人 / 遊び方','【歩く】矢印・十字ボタン、または地図をタップ。人や物をタップすると近づいて話す・調べる。仲間とは場所を譲り合うので、狭い通路でも引き返せる。\n【コマンド】見る＝説明を読むだけ／話す／使う＝扉・箱・装置・舟、自分を選ぶと持ち物／取る＝地面や机の品を拾う／動かす＝椅子や樽を隣のマスへ／置く＝持ち物を足元に／攻撃／術／休む。押したあと対象をタップ、または矢印でカーソルを動かしてA。Bで戻る。\n【会話】話題のボタンのほか、聞いた言葉を入力して尋ねられる（例：舟、隠者、霊流の環）。「仲間」で誘い、「さようなら」で終える。住人は昼は仕事場、日が暮れると食堂や宿に寄り、夜更けに寝床へ歩く。\n【戦闘】敵が見えると同じ地図で始まり、仲間が一人ずつ行動。仲間との位置交換は操作した人の1行動。メニューの「隊列」で仲間ごとに作戦（命令・突撃・後衛・護衛）を決め、別れることもできる。\n【旅】霊流の環は一度触れると、触れた環どうしを行き来できる。風待ち港の船大工から川舟を借りれば、蒼の川を下って離れ野へ。地下坑道は暗いので松明を。\n保存はこのブラウザーに自動。前の記録も引き継ぐ。',[['冒険に戻る',close],['最初から（確認）',()=>A.show('始め直す？','現在の記録を消して、このゲームを最初から始めます。',[['始め直す',()=>{s=E.fresh();prepareState();selected='yuris';Chronicle.enter()}],['やめる',close]])]]);
 globalThis.U6={ask,lookAt,getAt,moveAt,travel,orders,takeObject};
 chooseMode('explore');render();save();
 })();

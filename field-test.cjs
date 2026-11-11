@@ -8,7 +8,7 @@ E.normalize(old);assert.deepEqual(point(old),{x:133,y:18});assert.deepEqual(poin
 const once=JSON.stringify(old);E.normalize(old);assert.equal(JSON.stringify(old),once);assert.equal(old.enemies.filter(e=>e.id.startsWith('plains-wolf')).length,2);assert(E.valid(old));
 console.log('PASS migration: locations, doors, NPCs, explored tiles, items, defeated foes and active turn retained; idempotent');
 // Towns retain their dimensions; long, connected journeys and every spawn are valid.
-assert.equal(E.W,232);assert.equal(E.H,168);const s=safe();s.flags.gate=true;for(const b of E.World.buildings)s.openedDoors[b.door.join(',')]=true;
+assert.equal(E.World.valley.west,232);assert.equal(E.W,272);assert.equal(E.H,168);const s=safe();s.flags.gate=true;for(const b of E.World.buildings)s.openedDoors[b.door.join(',')]=true;
 const village=E.World.regions.find(r=>r[0]==='リーネ村'),port=E.World.regions.find(r=>r[0]==='風待ち港');
 assert(E.path(s,village[1],village[2]).length>110);s.x=village[1];s.y=village[2];assert(E.path(s,port[1],port[2]).length>=90);
 for(const e of E.World.wildernessFoes)assert(E.pass(s,e.x,e.y),'spawn '+e.id+' on '+E.terrain(e.x,e.y));assert.equal(E.World.wildernessFoes.length,24);
