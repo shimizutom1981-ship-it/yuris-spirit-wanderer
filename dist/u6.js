@@ -26,7 +26,7 @@ topics.inn.push(['舟','港の船大工が川舟を持っているそうだ。�
 topics.smith.push(['つるはし','うちにはないな。灰石の廃鉱の作業場になら残っているだろう。']);
 topics.ed.push(['隠者','川向こうに一人で暮らす老人がいるらしい。舟がなければ会えないそうだ。']);
 
-function knowledge(n){const d=D[n.id];if(d)return {名前:d.job,仕事:d.job,土地:d.info,...d.topics};const o=story[n.id];return o?{名前:o.name,土地:o.town,...Object.fromEntries(topics[n.id]||[])}:{}}
+function knowledge(n){const d=A.dialogueFor(n.id);if(d)return {名前:d.job,仕事:d.job,土地:d.info,...d.topics};const o=story[n.id];return o?{名前:o.name,土地:o.town,...Object.fromEntries(topics[n.id]||[])}:{}}
 function ask(n,word){
  word=String(word||'').trim();if(!word)return;
  if(/^(さようなら|さよなら|別れ|またね|bye)/i.test(word)){close();return}
@@ -95,7 +95,9 @@ inspect=function(o){
 // ---- Look never acts: it only describes what is there.
 const ground={grass:'草が風に揺れている。',flowers:'小さな花が咲いている。',tree:'枝葉の重なる木。通り抜けられない。',water:'冷たい水が流れている。舟があれば進める。',road:'旅人の足跡が残る道。',bridge:'木の橋。下を舟がくぐれる。',wall:'厚い石の壁。',floor:'磨かれた床板。',door:'扉だ。隣から開け閉めできる。',stone:'古い敷石。',mountain:'険しい岩山。',sand:'潮の香りのする砂。',marsh:'足を取られる湿原。',field:'よく耕された畑。',orchard:'実のなる木々。',rock:'硬い岩盤。',cave:'湿った坑道の床。'};
 const kinds={chest:'ふたのついた箱。「使う」で開けられる。',book:'読むことができる。',sign:'文字が書かれている。',lever:'引けそうだ。',well:'水をくめる。',camp:'火を囲んで休める。',stones:'古い立ち石の環。',altar:'霊流が脈打っている。',bed:'眠るための寝台。',lamp:'霊流でともる灯り。',bell:'三つの音色を持つ鐘。',wheel:'川の力を受ける車輪。',herb:'摘めそうな薬草。',crystal:'澄んだ霊晶。',gate:'古い門。'};
-function describe(o){return o.name+'。'+(o.desc||kinds[o.type]||(o.take||o.key||o.gearId?'':o.text?.split('\n')[0]||''))+(E.movable(o)?' 動かせそうだ。':'')+(o.take||o.key||o.gearId?' 持っていける。':'')+(o.owned?' 持ち主がいる。':'')}
+function describe(o){
+ if(o.id==='millwheel'&&s.flags.waterwheel)return '村の水車。軸受けが車輪を支え、石臼が回っている。';
+ return o.name+'。'+(o.desc||kinds[o.type]||(o.take||o.key||o.gearId?'':o.text?.split('\n')[0]||''))+(E.movable(o)?' 動かせそうだ。':'')+(o.take||o.key||o.gearId?' 持っていける。':'')+(o.owned?' 持ち主がいる。':'')}
 function thingAt(x,y){return s.dropped.find(o=>o.x===x&&o.y===y)||E.obj(s,x,y)}
 function lookAt(x,y){
  if(!canSee(x,y)){log('そこは暗いか、遮られていて見えない。');return}

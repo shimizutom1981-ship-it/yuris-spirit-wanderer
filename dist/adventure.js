@@ -6,7 +6,14 @@ const $items=Gear.items;
 const names={food:'食料',herbs:'薬草',arrows:'矢',crystal:'霊晶',wood:'木材',parts:'部品',keys:'調律片',torches:'松明',rope:'ロープ'};
 const keywordList=['三つの証','水の記憶','石の記憶','風の記憶','灯台','鉱山','水車','機霊','霊灯','鐘'];
 function note(title,text){for(const key of keywordList)if(text.includes(key)&&!s.heard.includes(key))s.heard.push(key);if(!s.notes.some(n=>n.title===title&&n.text===text))s.notes.push({title,text});save()}
-function rewardEvidence(key,label){if(s.evidence[key])return false;s.evidence[key]=true;note(label,'「'+label+'」を受け取った。潮鳴りの灯台で三つの証を重ねられる。');s.gold+=10;E.say(s,label+'を手に入れた。謝礼10枚。');return true}
+function rewardEvidence(key,label){
+ if(s.evidence[key])return false;
+ s.evidence[key]=true;
+ s.gold+=10;
+ E.say(s,label+'を手に入れた。謝礼10枚。');
+ note(label,'「'+label+'」を受け取った。潮鳴りの灯台で三つの証を重ねられる。');
+ return true;
+}
 function show(title,text,choices=[],isTalk=false){conversation=isTalk;$('modal').classList.toggle('conversation',isTalk);modal(title,text,choices)}
 function tell(n,topic,text,after){note(n.name+' / '+topic,text);show(n.name,text,[['話を続ける',()=>{after?.();talk(n)}]],true)}
 function obtain(id,qty=1){if($items[id])return Gear.add(s,id,qty);s[id]=(s[id]||0)+qty;return true}
@@ -25,28 +32,51 @@ const dialogue={
  noa:{intro:'《……声が、届く。君にも、聞こえるのか》',job:'《僕はノア。記憶を渡すために、ここに残った》',info:'《石の記憶を、灯台へ。水と風の記憶を重ねれば、過去の命令と今の声を比べられる》',topics:{'石の記憶':'《命令は「守れ」だった。守る相手が去っても、命令だけが残った。それを変えるには、今の声が必要なんだ》','三つの証':'《三つを重ねるのは、正解を選ぶためではない。誰か一人が、すべてを決めないため》'}},
  lighthouse:{intro:'《三つの記録を照合せよ。過去の命令だけでは、現在を判定できない》',job:'《私は、この海岸へ流れる霊流を保つ》',info:'《水、石、風。その三つの証を、この共鳴器へ》',topics:{灯台:'《封じれば静けさが戻る。つなげば、他の機霊にも今の声が届く》'}}
 };
+function millerDirections(){
+ if(s.flags.finalEnding)return '灯台の知らせは、この村にも届いたよ。旅の話を聞かせてくれ。';
+ const places=[];
+ if(!s.evidence.stone)places.push('石の証は灰石の廃鉱に');
+ if(!s.evidence.wind)places.push('風の証は水鏡修道院に');
+ return places.length ? places.join('、')+'あるよ。' : '三つの証がそろったね。潮鳴りの灯台の共鳴器に重ねておくれ。';
+}
+function dialogueFor(id){
+ const entry=dialogue[id];
+ if(id!=='miller'||!s.flags.waterwheel)return entry;
+ const next=millerDirections();
+ return {
+  ...entry,
+  intro:'「よく挽けているだろう。君に託した水の記憶は、祖父の代から村で守ってきたものだ。'+next+'」',
+  job:'水車守のハルだ。君が直してくれた軸受けに油を差して、石臼を回しているよ。',
+  info:next,
+  topics:{...entry.topics,水車:'ほら、石臼の音が聞こえるだろう。もう村で小麦を挽けるよ。',
+   水の記憶:'祖父は、川が三度さかのぼった晩の音を書き留めたんだ。君に託した「水の証」がその記録だよ。'+next,
+   水の証:next,三つの証:next}
+ };
+}
 talk=function(n){
  if(!dialogue[n.id]){conversation=true;$('modal').classList.add('conversation');oldTalk(n);const choices=$('choices');
  if(n.id==='smith'&&!s.flags.borrowedBow){let loan=document.createElement('button');loan.textContent='弓と矢を借りる';loan.onclick=()=>{if(Gear.add(s,'bow')){s.flags.borrowedBow=true;s.arrows+=12;tell(n,'旅の弓','旅に使いな。矢も12本つけておく。アイテムから弓を装備して、敵との距離を保つんだ。');save()}};choices.append(loan)}if(n.id==='smith'){let b=document.createElement('button');b.textContent='武器・防具を買う';b.onclick=()=>shop(n,['sword','spear','axe','leather','chainmail','shield','ironshield']);choices.append(b)}
  if(n.id==='celes'){let b=document.createElement('button');b.textContent='東の街道';b.onclick=()=>tell(n,'東の街道','東の石橋を越えるとリーネ村よ。その東には水鏡修道院、南には風待ち港。灯台に残る三つの証を調べたいの。');choices.append(b)}return;
  }
- const d=dialogue[n.id],c=[['名前・仕事',()=>{if(n.id==='mira')s.flags.mira=true;tell(n,'仕事',d.job)}],['この土地',()=>tell(n,'この土地',d.info)]];
+ const receivedWater=n.id==='miller'&&s.flags.waterwheel&&rewardEvidence('water','水の証');
+ const d=dialogueFor(n.id),c=[['名前・仕事',()=>{if(n.id==='mira')s.flags.mira=true;tell(n,'仕事',d.job)}],['この土地',()=>tell(n,'この土地',d.info)]];
  for(const [k,text] of Object.entries(d.topics))if(s.heard.includes(k)||d.intro.includes(k)||k==='機霊')c.push([k,()=>tell(n,k,text)]);
  if(n.id==='mira')c.push(['弓と矢を買う',()=>shop(n,['bow','longbow','leather',['arrows',4,12]])],['旅支度を借りる',()=>{s.flags.mira=true;tell(n,'旅支度','奥の箱に弓、革の鎧、矢を用意した。使ってちょうだい。弓は5マス届くけれど、木や壁の向こうには当たらない。')}]);
- if(n.id==='miller'&&s.flags.waterwheel)c.push(['水の証を受け取る',()=>{rewardEvidence('water','水の証');tell(n,'水の証','水車が戻った。村で守ってきた記録を君に託そう。石の記憶は鉱山、風の記憶は修道院だ。')}]);
  if(n.id==='trader')c.push(['品物を見る',()=>shop(n,['longbow','plate','crystalstaff','moon_ring','silver_ring','ward_charm','spirit_charm','herb_charm',['arrows',4,12],['herbs',3,2],['parts',4,1],['wood',3,2],['rope',6,1],['torches',2,2]])]);
  if(n.id==='abbot')c.push(['霊術の道具を買う',()=>shop(n,['staff','robe','moon_ring','spirit_charm',['herbs',3,2]])]);
  if(n.id==='host'||n.id==='miller')c.push(['食料・薬草',()=>shop(n,[['food',3,3],['herbs',3,2],['parts',4,1],['wood',3,2]])]);
  if(n.id==='host')c.push(['宿泊する　5G',()=>{if(s.combat.active||s.gold<5){show(n.name,'今は泊まれないようだね。',[['戻る',()=>talk(n)]]);return}s.gold-=5;s.party.forEach(p=>{p.hp=p.max;p.mp=Gear.stats(p).maxmp});s.turn+=320-s.turn%320;E.say(s,'波音を聴きながら眠り、朝を迎えた。');close()}]);
  if(n.id==='noa'&&s.flags.vent)c.push(['記憶を託して',()=>{rewardEvidence('stone','石の証');if(!s.party.some(p=>p.id==='noa')&&!s.bench?.noa){s.party.push({id:'noa',name:'ノア',role:'記憶の機霊',x:n.x,y:n.y,hp:36,max:36,mp:10,atk:6});Gear.ensure(s);s.party.at(-1).gear.weapon='staff';s.party.at(-1).pack.staff=1;}tell(n,'石の証','《君たちと行こう。命令の続きを、僕自身で選びたい》')}]);
- c.push(['別れる',close]);let intro=d.intro;if(n.id==='noa'&&!s.flags.vent)intro='《……空気……通気口……声が……届かない》';if(s.flags.finalEnding)intro+='\n'+(s.flags.finalEnding==='connect'?'遠くの機霊の声が、穏やかに重なっている。':'潮鳴りが静まり、人の暮らしの音が戻っている。');show(n.name,intro,c,true);
+ c.push(['別れる',close]);let intro=d.intro;
+ if(receivedWater)intro='「聞こえるかい、石臼の音だ。ありがとう。約束の記録を君に託そう」\n水の証と謝礼の金貨10枚を受け取った。\n'+millerDirections();
+ if(n.id==='noa'&&!s.flags.vent)intro='《……空気……通気口……声が……届かない》';if(s.flags.finalEnding)intro+='\n'+(s.flags.finalEnding==='connect'?'遠くの機霊の声が、穏やかに重なっている。':'潮鳴りが静まり、人の暮らしの音が戻っている。');show(n.name,intro,c,true);
 };
 inspect=function(o){
  if(o.key||!E.World.objects.some(a=>a.id===o.id)){oldInspect(o);return}
  if(s.combat.active){log('戦いが終わってから調べよう。');return}
  const back=[['閉じる',close]];
  if(o.loot){if(o.permission&&!s.flags[o.permission])return show(o.name,'持ち主の旅支度だ。ミラに話してみよう。',back);if(o.locked&&!s.containers[o.id]?.unlocked&&!s.keys)return show(o.name,'鍵がかかっている。調律片で開けられそうだ。',back);const state=s.containers[o.id]??={taken:[]};const items=Object.entries(o.loot).filter(([k])=>!state.taken.includes(k));if(!items.length)return show(o.name,'中は空だ。',back);show(o.name,(o.owned?'誰かの持ち物だ。無断で取ると町の信用が下がる。\n':'')+'中の物を選んで取り出す。',items.map(([id,qty])=>[($items[id]?.name||names[id])+' ×'+qty,()=>{if(!obtain(id,qty)){log('荷物が重すぎる。仲間に分けよう。');return}state.taken.push(id);if(o.owned){s.reputation--;E.say(s,'無断で持ち出した。町の信用が下がった。')}inspect(o)}]).concat(back));return}
- if(o.action==='waterwheel'){if(s.flags.waterwheel)return show(o.name,'車輪が回り、粉を挽く音が戻った。ハルに話してみよう。',back);show(o.name,'軸受けが折れている。部品1つか木材2つで直せそうだ。',[['部品で直す',()=>repairMill('parts',1)],['木材で直す',()=>repairMill('wood',2)],...back]);return}
+ if(o.action==='waterwheel'){if(s.flags.waterwheel)return showRunningMill();show(o.name,'軸受けが折れている。部品1つか木材2つで直せそうだ。',[['部品で直す',()=>repairMill('parts',1)],['木材で直す',()=>repairMill('wood',2)],...back]);return}
  if(o.action==='vent'){s.flags.vent=true;s.enemies.filter(e=>e.id==='mineguard').forEach(e=>{if(s.keys){e.hp=0;s.flags.minePeace=true}});show(o.name,'レバーを引くと空気が通り、奥から声が届いた。\n《……僕は、ノア。誰かいるのか》',back);return}
  if(o.action==='bells'){bell([]);return}
  if(o.action==='final'){finale();return}
@@ -54,7 +84,17 @@ inspect=function(o){
  if(o.action==='well'){s.party.forEach(p=>p.hp=Math.min(p.max,p.hp+8));show(o.name,'冷たい水で一息ついた。全員のHPが8回復。',back);return}
  if(o.topic){if(!s.heard.includes(o.topic))s.heard.push(o.topic);note(o.name,o.text);}const choices=o.movable?[[ '押す',()=>{const dx=Math.sign(o.x-s.x),dy=Math.sign(o.y-s.y);if(!E.pushObject(s,o,dx,dy))log('その先には動かせない。反対側へ回ってみよう。');close()}],...back]:back;show(o.name,o.text||'古い暮らしの道具だ。',choices)
 };
-function repairMill(item,qty){if(s[item]<qty)return show('水車',item==='wood'?'木材が2つ必要だ。食堂や港の店で買える。':'部品が必要だ。食堂や港の店で買える。',[['閉じる',close]]);s[item]-=qty;s.flags.waterwheel=true;s.gold+=8;note('水車の修理','水車が回った。食堂のハルに水の記憶について尋ねよう。');show('水車が回り始める','川の力が歯車に伝わり、村に粉を挽く音が戻った。',[['続ける',close]])}
+function showRunningMill(){
+ const hint=s.evidence.water?'':'食堂のハルに知らせよう。';
+ show('村の水車','車輪が回り、粉を挽く音が戻った。'+hint,[['閉じる',close]]);
+}
+function repairMill(item,qty){
+ if(s.flags.waterwheel)return showRunningMill();
+ if(s[item]<qty)return show('水車',item==='wood'?'木材が2つ必要だ。食堂や港の店で買える。':'部品が必要だ。食堂や港の店で買える。',[['閉じる',close]]);
+ s[item]-=qty;s.flags.waterwheel=true;s.gold+=8;
+ note('水車の修理','水車が回った。リーネ村の食堂でハルに報告しよう。');
+ show('水車が回り始める','川の力が歯車に伝わり、村に粉を挽く音が戻った。食堂のハルに知らせよう。',[['続ける',close]]);
+}
 function bell(seq){if(s.evidence.wind)return show('三音の鐘','風の証は手元にある。鐘は静かに揺れている。',[['閉じる',close]]);if(seq.length===3){if(seq.join(',')==='夕べ,暁,正午'){rewardEvidence('wind','風の証');show('風の記憶','重なった音の中に、灯台守の声が浮かんだ。\n「昨日の命令だけでは、今日を守れない」',[['続ける',close]])}else show('三音の鐘','音がほどけて消えた。年代記か、港の船大工の話に手掛かりがある。',[['もう一度',()=>bell([])],['離れる',close]]);return}show('三音の鐘',`どの鐘を鳴らす？ ${seq.length}/3\n${seq.join(' → ')}`,['暁','正午','夕べ'].map(v=>[v,()=>bell([...seq,v])]).concat([['離れる',close]]))}
 function finale(){const missing=[['water','水の証'],['stone','石の証'],['wind','風の証']].filter(([k])=>!s.evidence[k]);if(missing.length)return show('灯台の共鳴器','足りない記録：'+missing.map(v=>v[1]).join('、')+'。\n水は村、石は鉱山、風は修道院。人に尋ね、本を読もう。',[['閉じる',close]]);if(s.flags.finalEnding)return show('潮鳴りの灯台',s.flags.finalEnding==='connect'?'新しい声が海岸の機霊へ届いている。旅はまだ続けられる。':'装置は静かに休んでいる。旅はまだ続けられる。',[['閉じる',close]]);show('三つの記憶が重なる','ユリスは、守り続けた声を聴く。セレスは封印を読み、エドは人々の暮らしを思う。\nノア：《昔の命令を繰り返すか、今の声をつなぐか。僕は、君たちと選びたい》', [['今の声をつなぐ',()=>ending('connect')],['装置を静かに封じる',()=>ending('seal')],['今は決めない',close]])}
 function ending(which){s.flags.finalEnding=which;s.gold+=30;E.say(s,'第二章「三つの記憶」を終えた。');show('第二章 / 三つの記憶',which==='connect'?'霊流を伝って、小さな返事が一つ、また一つ届く。\n機霊は命令を待つのをやめ、人々の声に耳を澄ませた。\nノア：《次は、僕たちが聞きに行こう》\n町へ戻ると、人々の言葉も変わっている。':'霊流は穏やかに閉じられ、海岸に静けさが戻った。\nノアは最後の記憶を胸に収める。\n《いつか、もう一度声をつなげる日まで》\nこの世界で、旅を続けられる。',[['旅を続ける',close]])}
@@ -78,6 +118,6 @@ const equipFn=Gear.equip;Gear.equip=(p,id)=>{if(s.combat.active&&!E.canAct(s,p.i
 directional=function(dx,dy){if(mode==='magic'&&!$('modal').open){const p=active(),pos=E.position(s,p),enemy=E.enemy(s,pos.x+dx,pos.y+dy);if(enemy){interaction(enemy.x,enemy.y);return}}oldDirection(dx,dy)};
 let holdTimer=null;function stopHold(){clearTimeout(holdTimer);holdTimer=null}
 document.querySelectorAll('[data-dir]').forEach(b=>{b.onpointerdown=ev=>{ev.preventDefault();stopHold();const d=b.dataset.dir.split(',').map(Number);directional(...d);const again=()=>{if(s.combat.active){stopHold();return}directional(...d);if(!s.combat.active)holdTimer=setTimeout(again,150)};if(!s.combat.active)holdTimer=setTimeout(again,300);b.setPointerCapture?.(ev.pointerId)};b.onpointerup=stopHold;b.onpointercancel=stopHold;b.onlostpointercapture=stopHold;b.onclick=ev=>{if(ev.detail===0)directional(...b.dataset.dir.split(',').map(Number))}});
-globalThis.Adv={dialogue,keywordList,names,note,show,tell,obtain,shop,supplies,active,spellbook,setUsed:v=>{usedItem=v},isTalk:()=>conversation};
+globalThis.Adv={dialogue,dialogueFor,keywordList,names,note,show,tell,obtain,shop,supplies,active,spellbook,setUsed:v=>{usedItem=v},isTalk:()=>conversation};
 chooseMode('explore');render();save();
 })();
