@@ -5,6 +5,12 @@ function rect(g,c,x,y,w,h){g.fillStyle=c;g.fillRect(x,y,w,h)}
 function dots(g,c,points){for(const p of points)rect(g,c,p[0],p[1],p[2]||1,p[3]||1)}
 function shade(hex,f){if(!/^#[\da-f]{6}$/i.test(hex))hex='#65999b';return '#'+hex.slice(1).match(/../g).map(v=>Math.max(0,Math.min(255,Math.round(parseInt(v,16)*f))).toString(16).padStart(2,'0')).join('')}
 function tile(g,t,x=0,y=0,chapter){
+ if(t==='ancientFloor'){
+  rect(g,'#425454',0,0,16,16);rect(g,'#526667',0,1,16,14);
+  if(y>=58){const dim=['outside','latch','contact','bearers','chosen'].includes(chapter?.step);if((x+y)%3===0&&(!dim||y===62)){rect(g,'#668987',0,9,16,2);rect(g,'#b9e0d0',4,9,9,1)}}
+  else dots(g,'#93aaa0',[[1,3,6],[11,13,3]]);
+  return;
+ }
  if(t==='snow'||t==='snowTrack'||t==='winterField'){
   const lane=t==='snowTrack',field=t==='winterField',n=(3*x+5*y)%11;
   rect(g,field?'#bab4a1':lane?'#bac2bd':'#d8e6e7',0,0,16,16);
@@ -30,6 +36,14 @@ if(t==='kiln'){rect(g,'#654739',0,0,16,16);for(let row=0;row<2;row++){rect(g,'#3
 }
 function sprite(g,color='#65999b',kind='person',id='',turn=0,hp,chapter){
  rect(g,'#17251e',4,14,9,2);
+ if(id==='yuris'&&chapter?.restingInMine){
+  const r=(c,x,y,w,h)=>rect(g,c,x,y,w,h),floor=chapter.step==='below',carried=['chosen','freshSnow'].includes(chapter.step);
+  if(!floor){r(carried?'#936f45':'#91aaa9',0,4,16,9);r(carried?'#d3c4a1':'#e1eeea',1,5,14,6);r('#66726e',2,13,2,1);r('#66726e',12,13,2,1)}
+  r('#66503e',1,5,4,5);r('#dfbf96',2,6,3,3);r('#47818b',5,7,9,4);r('#7fa7a2',5,7,5,1);r('#314d57',12,8,3,3);return;
+ }
+ if(id==='finn'){
+  const r=(c,x,y,w,h)=>rect(g,c,x,y,w,h);r('#604334',6,4,5,3);r('#e1bb94',6,6,4,3);r('#9f7055',4,9,8,4);r('#584e47',5,13,2,2);r('#584e47',9,13,2,2);return;
+ }
  if(id==='noa'){
   const r=(c,x,y,w,h)=>rect(g,c,x,y,w,h),shift=turn%2;
   r('#4a626b',1,7,3,2);r('#7f999a',3,8,8,4);r('#afbcaf',4,7,6,2);
@@ -43,10 +57,14 @@ function sprite(g,color='#65999b',kind='person',id='',turn=0,hp,chapter){
  if(kind==='golem'){
  rect(g,'#313c41',3,5,11,9);rect(g,'#6e8580',4,4,8,9);rect(g,'#a4b1a0',5,3,6,3);rect(g,'#465a5a',5,1,6,4);rect(g,'#87aaa3',6,1,4,1);rect(g,'#dfb860',6,3,1,1);rect(g,'#dfb860',9,3,1,1);rect(g,'#b0c1aa',6,6,5,1);rect(g,'#9dd4b7',7,7,2,3);rect(g,'#5d726f',1,6,3,6);rect(g,'#5d726f',12,6,3,6);rect(g,'#7f9690',1,6,2,2);rect(g,'#7f9690',13,6,2,2);rect(g,'#465b59',4,12,3,3);rect(g,'#465b59',9,12,3,3);return;
  }
+ if(id==='novel-doran')color='#ab704c';
  const dark=shade(color,.6),light=shade(color,1.3);if(id==='celes')rect(g,'#d4caca',4,1,9,10);if(id==='ed')rect(g,'#9a8e79',11,7,4,7);
  rect(g,'#252e29',5,12,3,4);rect(g,'#252e29',9,12,3,4);rect(g,'#473d2e',4,15,4,1);rect(g,'#473d2e',9,15,4,1);
  rect(g,dark,4,7,9,6);rect(g,color,5,7,7,6);rect(g,light,5,7,2,4);rect(g,dark,3,8,2,5);rect(g,dark,12,8,2,5);rect(g,'#b9936f',3,12,2,2);rect(g,'#b9936f',12,12,2,2);rect(g,'#463b2d',5,12,7,1);rect(g,'#d4b55d',8,12,1,1);
  rect(g,'#6b4b32',5,1,7,5);rect(g,'#ad7850',6,1,5,1);rect(g,'#d3b18a',6,3,5,4);rect(g,'#e7c69c',6,3,3,2);rect(g,'#292e29',7,4,1,1);rect(g,'#292e29',10,4,1,1);rect(g,'#80573e',8,6,2,1);rect(g,'#3f392b',5,2,1,4);rect(g,'#3f392b',11,2,1,4);
+ if(id==='yuris'&&['mineGate','tracks','draft','pool','answer','ledge','sleeve'].includes(chapter?.step)){
+  rect(g,'#715537',12,9,3,2);rect(g,'#d19a51',11,11,5,4);rect(g,'#fff0ac',12,11,3,3);rect(g,'#715537',11,15,5,1);
+ }
  if(id==='oscar'&&chapter?.step==='fire'){
   rect(g,'#524b54',1,7,7,5);rect(g,'#ddd1af',2,7,3,3);rect(g,'#59483f',1,6,4,2);rect(g,'#aba8a4',4,10,5,2);
  }
@@ -58,11 +76,19 @@ function object(g,t,s={}){
  if(t==='printRack'){r('#68462f',2,3,2,12);r('#68462f',12,3,2,12);r('#ac8053',1,3,14,2);r('#ddcda5',3,5,10,7);r('#658786',4,9,8,2);if(s.errands?.print==='glove'){r('#b45e56',7,6,3,3)}else{r('#926e4c',5,8,6,1)}return}
 
  const winter=s.chapter;
+ if(t==='mineMouth'){r('#6d6f69',0,5,16,9);r('#272d32',3,5,10,9);r('#7d6045',1,3,2,12);r('#896b4d',13,3,2,12);r('#ab8b65',0,2,16,3);r('#d8e1da',0,1,16,2);return}
+ if(t==='smallPrints'){for(const [x,y] of [[2,11],[7,9],[9,5],[13,3]]){r('#252a2a',x,y,2,3);r('#9e8264',x,y+3,2,1)}return}
+ if(t==='drift'){dots(g,'#999184',[[1,10,3],[6,9,4],[11,8,3]]);dots(g,'#60574a',[[4,12,2],[9,5,3]]);return}
+ if(t==='puddle'){r('#253f4b',1,8,13,4);r('#719696',4,9,6,1);r('#8aa7a5',10,7,2,1);return}
+ if(t==='litSeam'){r('#5c7476',2,2,12,11);r('#7c9692',3,3,10,3);r('#a3c4b4',10,4,2,8);return}
+ if(t==='ropePillar'){r('#534b43',4,1,8,14);r('#7b7062',4,1,3,13);if(['ledge','sleeve'].includes(winter?.step)){r('#c8a776',3,7,10,2);r('#ad875c',12,8,2,7)}return}
+ if(t==='finnLedge'){r('#151d22',0,7,16,8);r('#80746a',2,9,12,4);r('#a39986',2,9,11,1);if(['ledge','sleeve'].includes(winter?.step))sprite(g,'#997058','person','finn');return}
+ if(t==='tetheredBeast'){if(winter?.step!=='chosen'){r('#97a9a2',0,10,4,1);r('#97a9a2',0,12,5,1);r('#587674',3,11,3,1)}sprite(g,'#839b92','person','noa',0);return}
  if(t==='winterSign'){r('#735b44',7,5,3,10);r('#8e8066',2,3,12,5);r('#e5ece6',1,2,12,2);return}
  if(t==='snowHand'){r('#b4c9d0',1,10,14,4);r('#605455',6,7,5,4);r('#493f42',6,4,1,5);r('#685754',8,3,1,6);r('#dddeda',2,11,10,2);return}
  if(t==='soupTable'){if(['soup','morning'].includes(winter?.step)){r('#634e43',9,0,5,4);r('#dbc8a8',10,3,4,3);r('#9d9c8d',9,6,6,3)}r('#764e39',1,7,14,4);r('#946748',2,11,2,4);r('#946748',12,11,2,4);r('#9cbbb1',5,6,6,2);r('#e4ab67',5,5,6,1);return}
  if(t==='driveCase'){r('#59473b',1,10,14,4);r('#ad8555',2,7,12,5);r('#d4b686',3,6,10,2);r('#647b79',4,3,3,4);r('#91a8a0',9,4,3,3);return}
- if(t==='hoist'){r('#77553f',2,3,2,12);r('#77553f',12,3,2,12);r('#aa8456',1,2,14,2);r('#c8aa70',6,4,4,4);r('#51423e',8,6,1,6);let h=winter&&!['marker','slope','fire','trust','soup','plans','govern','hoist'].includes(winter.step)?s.turn%3:0;r('#675d52',5,11-h,7,3);return}
+ if(t==='hoist'){r('#77553f',2,3,2,12);r('#77553f',12,3,2,12);r('#aa8456',1,2,14,2);r('#c8aa70',6,4,4,4);r('#51423e',8,6,1,6);let h=['morning','grinder','shards','before','furnace','after','sorting','works','report','end'].includes(winter?.step)?s.turn%3:0;r('#675d52',5,11-h,7,3);return}
  if(t==='grinder'){r('#684b3b',2,11,12,3);r('#a9b0ac',4,4,8,8);r('#cbd1c8',5,3,6,1);r('#758584',6,6,4,4);r('#634e3d',7,7,2,2);return}
  if(t==='testWeight'){r('#9b7955',2,12,12,2);r('#827a6d',3,3,2,10);r('#b89d76',3,2,9,2);r('#5c5f5e',10,4,1,5);r('#737976',8,8,5,3);return}
  if(t==='bellows'){r('#694739',2,10,11,3);r(winter?.bellows?'#ce8e52':'#ac7959',4,6,7,4);r('#ddb37a',2,5,9,2);r('#797b70',11,8,4,2);if(winter?.bellows)r('#efb659',14,6,2,3);return}

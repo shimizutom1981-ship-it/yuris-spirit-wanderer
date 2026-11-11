@@ -6,7 +6,7 @@ function element(tag='div'){
  set innerHTML(v){this.children=[]},get lastChild(){return this.children.at(-1)},append(...a){a.forEach(c=>c.parentElement=this);this.children.push(...a)},replaceChildren(...a){this.children=[];this.append(...a)},setAttribute:noop,focus:noop,
  querySelector(){return this.closeButton??=element('button')},querySelectorAll(){return this.children},getContext(){return new Proxy({},{get:(t,p)=>t[p]??noop,set:(t,p,v)=>(t[p]=v,true)})},show(){this.open=true},showModal(){this.open=true},close(){this.open=false},click(){if(!this.disabled)this.onclick?.()},getBoundingClientRect(){return{left:0,top:0,width:256,height:224}}};return el;
 }
-function setup(saved=require('./dist/engine').fresh()){const nodes=new Map(),storage=new Map(saved?[['yuris-spirit-wanderer-v1',JSON.stringify(saved)]]:[]),context={console,Date,setTimeout:fn=>fn(),clearTimeout:noop,document:{getElementById(id){if(!nodes.has(id))nodes.set(id,element());return nodes.get(id)},createElement:element,querySelectorAll:()=>[],addEventListener:noop},localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v)},Painter:{tile:noop,object:noop,sprite:noop,roof:noop,held:noop}};vm.createContext(context);for(const file of ['norvik.js','world.js','equipment.js','engine.js','game.js','side-stories.js','adventure.js','u6.js','chronicle.js'])vm.runInContext(fs.readFileSync('dist/'+file,'utf8'),context,{filename:file});const q={run:code=>vm.runInContext(code,context),nodes,storage,choose(label){const b=nodes.get('choices').children.find(b=>b.textContent===label);assert(b,'choice missing '+label+'; options='+nodes.get('choices').children.map(c=>c.textContent));b.click()},button(id){nodes.get(id).click()},choices(){return nodes.get('choices').children.map(b=>b.textContent)},reset(){q.run("s=E.fresh();prepareState();selected='yuris';mode='explore';$('modal').close();render()")}};return q}
+function setup(saved=require('./dist/engine').fresh()){const nodes=new Map(),storage=new Map(saved?[['yuris-spirit-wanderer-v1',JSON.stringify(saved)]]:[]),context={console,Date,setTimeout:fn=>fn(),clearTimeout:noop,document:{getElementById(id){if(!nodes.has(id))nodes.set(id,element());return nodes.get(id)},createElement:element,querySelectorAll:()=>[],addEventListener:noop},localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v)},Painter:{tile:noop,object:noop,sprite:noop,roof:noop,held:noop}};vm.createContext(context);for(const file of ['norvik.js','world.js','equipment.js','engine.js','game.js','side-stories.js','adventure.js','u6.js','first-meeting.js','chronicle.js'])vm.runInContext(fs.readFileSync('dist/'+file,'utf8'),context,{filename:file});const q={run:code=>vm.runInContext(code,context),nodes,storage,choose(label){const b=nodes.get('choices').children.find(b=>b.textContent===label);assert(b,'choice missing '+label+'; options='+nodes.get('choices').children.map(c=>c.textContent));b.click()},button(id){nodes.get(id).click()},choices(){return nodes.get('choices').children.map(b=>b.textContent)},reset(){q.run("s=E.fresh();prepareState();selected='yuris';mode='explore';$('modal').close();render()")}};return q}
 let passed=0;function test(name,fn){fn();passed++;console.log('PASS',name)}
 let q=setup();
 test('new game initializes map, equipment and autosave',()=>{assert.equal(q.run('s.party[0].gear.weapon'),'dagger');assert.equal(q.run('E.W'),272);assert.equal(q.run('s.arrows'),30);assert(q.storage.has('yuris-spirit-wanderer-v1'))});
@@ -154,8 +154,47 @@ test('finished main story can start the potter errand and keep its ending',()=>{
  const saved=resume(game);assert(saved.run("s.errands.cupAsked&&s.flags.finalEnding==='seal'&&Object.keys(s.evidence).length===3"));
 });
 function followStory(game,...labels){
- game.button('novel');game.choose('目印まで歩く');
+ game.button('novel');game.choose(game.run('s.chapter.restingInMine')?'目の前を確かめる':'目印まで歩く');
  for(const label of labels)game.choose(label);
+}
+function playFirstMeeting(game){
+ assert.equal(game.run('s.chapter.step'),'finnCall');
+ assert.equal(game.run('s.party.map(p=>p.id).join()'),'yuris');
+ followStory(game,'私が灯りを持つ');
+ assert.equal(game.run('s.party.map(p=>p.id).join()'),'novel-doran,yuris');
+ followStory(game,'灯りをかざして坑道に入る');
+ followStory(game,'奥へ呼びかける');
+ assert.equal(game.run('s.chapter.step'),'tracks');
+ followStory(game,'帰りの跡を探す');
+ followStory(game,'西の水音をたどる');
+ followStory(game,'分かれ道で風を確かめ直す');
+ game=resume(game);
+ followStory(game,'東の暖かい風をたどる');
+ followStory(game,'フィンの名を呼び、返事を待つ');
+ followStory(game,'足元を照らしてドーランに知らせる');
+ followStory(game,'灯りを置いてフィンの袖をつかむ');
+ assert(game.run("s.chapter.step==='below'&&s.party.length===1&&!E.move(s,1,0)"));
+ game.button('map');assert(game.nodes.get('mt').textContent.includes('旧坑道'));
+ followStory(game,'「お願い」とドーランに声をかける');
+ followStory(game,'もう少し話を聞く');
+ game=resume(game);
+ assert.equal(game.run('s.chapter.step'),'connection');
+ // The creature can be addressed on the map from the bed as well as via the journal.
+ game.run("close();chooseMode('talk');interaction(s.x+1,s.y)");
+ game.choose('「助けて」と伝える');
+ followStory(game,'「ノア、はどう？」');
+ followStory(game,'外へ行ってみたいか聞く');
+ followStory(game,'布を巻いたまっすぐな棒を試す');
+ assert.equal(game.run('s.chapter.step'),'latch');
+ followStory(game,'布を指に巻き、縁の裏へ曲げる');
+ followStory(game,'指を引いて合図する');
+ followStory(game,'ドーランに管を任せ、迎えの人に声をかける');
+ assert(game.run("s.chapter.step==='chosen'&&!s.party.some(p=>p.id==='noa')"));
+ followStory(game,'初めて、選んでくれた名を呼ぶ');
+ game=resume(game);
+ assert(game.run("s.chapter.step==='freshSnow'&&s.party.map(p=>p.id).join()==='yuris,noa'&&!E.move(s,-1,0)"));
+ followStory(game,'雪についた小さな足跡を見届ける');
+ return game;
 }
 test('a new player walks from the snowy pass through the rescue, flashback and industrial trials',()=>{
  let game=setup(null);
@@ -169,7 +208,10 @@ test('a new player walks from the snowy pass through the rescue, flashback and i
  followStory(game,'手を引いて、少年が包みを出すのを待つ');
  assert(!game.run("s.party.some(p=>p.id==='oscar')"));
  followStory(game,'少年の望む呼び名を聞く');
+ game.run("s.party.find(p=>p.id==='noa').hp=21");
  followStory(game,'浮いた脚に畳んだ布を挟む');
+ game=playFirstMeeting(game);
+ assert(game.run("s.chapter.step==='plans'&&!s.chapter.restingInMine&&s.party.find(p=>p.id==='noa').hp===21"));
  followStory(game,'回す部分だけを図面に残す');
  followStory(game,'試しの荷をつなぐ','一度に大きく力を足す');
  assert.equal(game.run('s.chapter.step'),'govern');
@@ -213,5 +255,18 @@ test('free adventure and novel retain distinct parties, quests and exact return 
  const loaded=resume(game);loaded.button('novel');loaded.choose('物語の続きを遊ぶ');
  assert.equal(loaded.run("s.x+','+s.y"),spot);assert.equal(loaded.run('s.chapter.step'),'slope');
  assert(loaded.run("s.freeAdventure.gold===89&&!s.freeAdventure.winterRecord&&!('winterRecord' in s)"));
+});
+test('an advanced older save can replay the complete mine, or return early, without changing either adventure',()=>{
+ const game=setup(null);
+ game.run("s.chapter={step:'end',bellows:true,plot:true};s.gold=71;s.party.push({id:'ed',name:'エド',role:'記録',hp:14,max:30,mp:2,atk:6,x:s.x,y:s.y+1});s.freeAdventure.gold=82;prepareState();save()");
+ const original=game.run("JSON.stringify(s)");
+ game.button('novel');game.choose('フィンとノアの回想を遊ぶ');
+ followStory(game,'私が灯りを持つ');
+ const reloaded=resume(game);reloaded.button('novel');reloaded.choose('元の物語に戻る');
+ assert.equal(reloaded.run('JSON.stringify(s)'),original);
+ reloaded.button('novel');reloaded.choose('フィンとノアの回想を遊ぶ');
+ const finished=playFirstMeeting(reloaded);assert.equal(finished.run('JSON.stringify(s)'),original);
+ finished.button('novel');finished.choose('自由冒険を遊ぶ');
+ assert(finished.run("s.gold===82&&s.winterRecord.chapter.step==='end'"));
 });
 console.log(JSON.stringify({passed}));
