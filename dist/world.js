@@ -101,10 +101,43 @@ for(const [id,[x,y]]of Object.entries(night)){const p=expandPoint({x,y});night[i
 const hut={id:'hermithut',x:24,y:38,w:7,h:6,door:[27,43],name:'隠者の庵',roof:'#5f6f5a'};
 const carve=[[21,50,21,54],[17,54,25,57],[9,56,17,56],[7,54,11,60],[25,55,31,55],[30,53,35,58],[21,57,21,62],[15,62,27,65],[27,64,33,64],[31,62,35,70],[8,63,15,63],[7,63,11,70]];
 function caveTerrain(x,y){if(x<5||x>37||y<50||y>72)return null;return carve.some(([a,b,c,d])=>x>=a&&x<=c&&y>=b&&y<=d)?'cave':'rock'}
-function under(x,y){return caveTerrain(x,y)==='cave'}
+// Cut the climbing kiln into the previously impassable ridge. Its only mouth faces north.
+const kilnX=162,kilnY=35;
+const kilnPlan=[
+ '#####.####', // 35 north mouth
+ '#####.####',
+ '##......##', // drying room
+ '##......##',
+ '##......##',
+ '#####.####',
+ '#####.####',
+ '#...#.#..#', // two flues on opposite sides of the gallery
+ '#...#.#..#',
+ '#........#',
+ '#...#.#..#',
+ '#...#.#..#',
+ '#####.####',
+ '###....###',
+ '###....###',
+ '#####.####', // shutter at (167,51)
+ '#####.####',
+ '#.....####',
+ '#.....####',
+ '#.....####',
+ '###.######',
+ '###.....##',
+ '######..##',
+ '##.......#', // ware room
+ '##.......#',
+ '##.......#',
+ '##########'
+];
+function kilnFloor(x,y){return kilnPlan[y-kilnY]?.[x-kilnX]==='.'}
+function under(x,y){return kilnFloor(x,y)||caveTerrain(x,y)==='cave'}
 buildings.push(hut);regions.push(['離れ野',22,47]);
 function terrain(x,y){
  if(x<2||y<2||x>=W-2||y>=H-1)return 'water';
+ if(kilnFloor(x,y))return 'kiln';
  const cave=caveTerrain(x,y);if(cave)return cave;
  if(inside(x,y,hut))return hut.door[0]===x&&hut.door[1]===y?'door':x===hut.x||y===hut.y||x===hut.x+hut.w-1||y===hut.y+hut.h-1?'wall':'floor';
  if(x<44&&y<36)return compactTerrain(x,y);
@@ -176,6 +209,27 @@ objects.push(
  {id:'cavechest-c',x:8,y:69,type:'chest',name:'水のしたたる箱',loot:{crystalstaff:1,crystal:2},isle:true},
  {id:'deepcore',x:33,y:68,type:'altar',name:'地下の霊核',action:'deepcore',isle:true}
 );
+regions.push(['燕の登り窯',167,35]);
+npcs.push(
+ {id:'potter',name:'陶工マユ',x:128,y:22,color:'#b07558'},
+ {id:'printer',name:'版画屋ニナ',x:11,y:23,color:'#b76c81'},
+ {id:'ferryman',name:'元渡し守ソウ',x:18,y:32,color:'#659095'}
+);
+objects.push(
+ {id:'potter-bench',x:128,y:23,type:'potterBench',name:'マユの仕事台',side:'bench'},
+ {id:'print-rack',x:11,y:24,type:'printRack',name:'軒先の絵はがき',side:'prints'},
+ {id:'ferry-plank',x:19,y:32,type:'sign',name:'三本線の舟板',text:'舟のへさきに三本の刻み。釘の頭に赤い手袋が片方かかっている。そばの老人が器用に網を繕っている。'},
+ {id:'kiln-turn',x:167,y:26,type:'sign',name:'燕の道しるべ',text:'陶工の燕印。ここから真南、岩山の北面に登り窯の入口。入口の箱の松明は誰でも使ってよい。'},
+ {id:'kiln-cache',x:168,y:34,type:'chest',name:'窯番の松明箱',loot:{torches:3}},
+ {id:'kiln-tile',x:165,y:38,type:'book',name:'見習いの絵タイル',side:'tile'},
+ {id:'kiln-swallow',x:164,y:43,type:'lever',name:'燕の風戸',side:'swallow'},
+ {id:'kiln-fish',x:170,y:46,type:'lever',name:'魚の風戸',side:'fish'},
+ {id:'kiln-shutter',x:167,y:51,type:'kilnShutter',name:'灰よけの格子',side:'shutter',solid:true,opaque:true},
+ {id:'kiln-shelf',x:165,y:59,type:'cupShelf',name:'いちばん低い窯棚',side:'shelf'}
+);
+const kilnFoes=[
+ {id:'kiln-watch',x:164,y:54,hp:27,max:27,atk:4,type:'golem'}
+];
 function migrate(s){
  const previous=s.worldVersion||0;
  if(!previous){s.enemies.push(...foes.map(e=>{const p=compactPoint(e.x,e.y);return {...e,...p}}));s.arrows??=30;s.torches??=2;s.rope??=0;s.reputation??=0;s.heard??=['機霊','霊灯'];s.visited??=['ノルヴィク'];s.lightUntil??=0;s.turnStart??=s.turn;}
@@ -191,10 +245,16 @@ function migrate(s){
   for(const p of [s,...s.party,...s.enemies])if(p&&p.y===74&&p.x>=43&&p.x<=46)p.x=47; // strip that became river
   s.worldVersion=5;s.log.unshift('古い立ち石「霊流の環」が目を覚ました。風待ち港の船大工は川舟を直しているらしい。');
  }
+ if(s.worldVersion<6){
+  s.enemies.push(...kilnFoes.filter(e=>!s.enemies.some(existing=>existing.id===e.id)).map(e=>({...e})));
+  s.worldVersion=6;
+ }
+ s.errands??={};
  s.rings??={};s.rod??=0;s.pick??=0;s.bench??={};s.boat??={x:121,y:75};s.aboard??=false;
  s.moved??={};s.heard??=[];s.evidence??={};s.visited??=[];s.containers??={};s.notes??=[];
 }
 function location(x,y){
+ if(kilnFloor(x,y))return y>=56?'燕の登り窯・窯出し場':y>40?'燕の登り窯・風道':'燕の登り窯・乾燥室';
  if(x<44&&y<36)return x>31&&y<13?'忘れられた霊堂':x>21?'東の森':'ノルヴィク';
  if(x<43&&y>=36&&y<75)return under(x,y)?'離れ野の地下坑道':'川向こうの離れ野';
  if(x>=211&&y>=156)return '潮鳴りの灯台';

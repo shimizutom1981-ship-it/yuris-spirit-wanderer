@@ -40,7 +40,7 @@ function millerDirections(){
  return places.length ? places.join('、')+'あるよ。' : '三つの証がそろったね。潮鳴りの灯台の共鳴器に重ねておくれ。';
 }
 function dialogueFor(id){
- const entry=dialogue[id];
+ const entry=dialogue[id]||SideStories.dialogue(id);
  if(id!=='miller'||!s.flags.waterwheel)return entry;
  const next=millerDirections();
  return {
@@ -54,12 +54,13 @@ function dialogueFor(id){
  };
 }
 talk=function(n){
- if(!dialogue[n.id]){conversation=true;$('modal').classList.add('conversation');oldTalk(n);const choices=$('choices');
+ const entry=dialogueFor(n.id);
+ if(!entry){conversation=true;$('modal').classList.add('conversation');oldTalk(n);const choices=$('choices');
  if(n.id==='smith'&&!s.flags.borrowedBow){let loan=document.createElement('button');loan.textContent='弓と矢を借りる';loan.onclick=()=>{if(Gear.add(s,'bow')){s.flags.borrowedBow=true;s.arrows+=12;tell(n,'旅の弓','旅に使いな。矢も12本つけておく。アイテムから弓を装備して、敵との距離を保つんだ。');save()}};choices.append(loan)}if(n.id==='smith'){let b=document.createElement('button');b.textContent='武器・防具を買う';b.onclick=()=>shop(n,['sword','spear','axe','leather','chainmail','shield','ironshield']);choices.append(b)}
  if(n.id==='celes'){let b=document.createElement('button');b.textContent='東の街道';b.onclick=()=>tell(n,'東の街道','東の石橋を越えるとリーネ村よ。その東には水鏡修道院、南には風待ち港。灯台に残る三つの証を調べたいの。');choices.append(b)}return;
  }
  const receivedWater=n.id==='miller'&&s.flags.waterwheel&&rewardEvidence('water','水の証');
- const d=dialogueFor(n.id),c=[['名前・仕事',()=>{if(n.id==='mira')s.flags.mira=true;tell(n,'仕事',d.job)}],['この土地',()=>tell(n,'この土地',d.info)]];
+ const d=entry,c=[['名前・仕事',()=>{if(n.id==='mira')s.flags.mira=true;tell(n,'仕事',d.job)}],['この土地',()=>tell(n,'この土地',d.info)]];
  for(const [k,text] of Object.entries(d.topics))if(s.heard.includes(k)||d.intro.includes(k)||k==='機霊')c.push([k,()=>tell(n,k,text)]);
  if(n.id==='mira')c.push(['弓と矢を買う',()=>shop(n,['bow','longbow','leather',['arrows',4,12]])],['旅支度を借りる',()=>{s.flags.mira=true;tell(n,'旅支度','奥の箱に弓、革の鎧、矢を用意した。使ってちょうだい。弓は5マス届くけれど、木や壁の向こうには当たらない。')}]);
  if(n.id==='trader')c.push(['品物を見る',()=>shop(n,['longbow','plate','crystalstaff','moon_ring','silver_ring','ward_charm','spirit_charm','herb_charm',['arrows',4,12],['herbs',3,2],['parts',4,1],['wood',3,2],['rope',6,1],['torches',2,2]])]);
@@ -67,7 +68,7 @@ talk=function(n){
  if(n.id==='host'||n.id==='miller')c.push(['食料・薬草',()=>shop(n,[['food',3,3],['herbs',3,2],['parts',4,1],['wood',3,2]])]);
  if(n.id==='host')c.push(['宿泊する　5G',()=>{if(s.combat.active||s.gold<5){show(n.name,'今は泊まれないようだね。',[['戻る',()=>talk(n)]]);return}s.gold-=5;s.party.forEach(p=>{p.hp=p.max;p.mp=Gear.stats(p).maxmp});s.turn+=320-s.turn%320;E.say(s,'波音を聴きながら眠り、朝を迎えた。');close()}]);
  if(n.id==='noa'&&s.flags.vent)c.push(['記憶を託して',()=>{rewardEvidence('stone','石の証');if(!s.party.some(p=>p.id==='noa')&&!s.bench?.noa){s.party.push({id:'noa',name:'ノア',role:'記憶の機霊',x:n.x,y:n.y,hp:36,max:36,mp:10,atk:6});Gear.ensure(s);s.party.at(-1).gear.weapon='staff';s.party.at(-1).pack.staff=1;}tell(n,'石の証','《君たちと行こう。命令の続きを、僕自身で選びたい》')}]);
- c.push(['別れる',close]);let intro=d.intro;
+ c.push(...SideStories.choices(n),['別れる',close]);let intro=d.intro;
  if(receivedWater)intro='「聞こえるかい、石臼の音だ。ありがとう。約束の記録を君に託そう」\n水の証と謝礼の金貨10枚を受け取った。\n'+millerDirections();
  if(n.id==='noa'&&!s.flags.vent)intro='《……空気……通気口……声が……届かない》';if(s.flags.finalEnding)intro+='\n'+(s.flags.finalEnding==='connect'?'遠くの機霊の声が、穏やかに重なっている。':'潮鳴りが静まり、人の暮らしの音が戻っている。');show(n.name,intro,c,true);
 };
@@ -75,6 +76,7 @@ inspect=function(o){
  if(o.key||!E.World.objects.some(a=>a.id===o.id)){oldInspect(o);return}
  if(s.combat.active){log('戦いが終わってから調べよう。');return}
  const back=[['閉じる',close]];
+ if(SideStories.inspect(o))return;
  if(o.loot){if(o.permission&&!s.flags[o.permission])return show(o.name,'持ち主の旅支度だ。ミラに話してみよう。',back);if(o.locked&&!s.containers[o.id]?.unlocked&&!s.keys)return show(o.name,'鍵がかかっている。調律片で開けられそうだ。',back);const state=s.containers[o.id]??={taken:[]};const items=Object.entries(o.loot).filter(([k])=>!state.taken.includes(k));if(!items.length)return show(o.name,'中は空だ。',back);show(o.name,(o.owned?'誰かの持ち物だ。無断で取ると町の信用が下がる。\n':'')+'中の物を選んで取り出す。',items.map(([id,qty])=>[($items[id]?.name||names[id])+' ×'+qty,()=>{if(!obtain(id,qty)){log('荷物が重すぎる。仲間に分けよう。');return}state.taken.push(id);if(o.owned){s.reputation--;E.say(s,'無断で持ち出した。町の信用が下がった。')}inspect(o)}]).concat(back));return}
  if(o.action==='waterwheel'){if(s.flags.waterwheel)return showRunningMill();show(o.name,'軸受けが折れている。部品1つか木材2つで直せそうだ。',[['部品で直す',()=>repairMill('parts',1)],['木材で直す',()=>repairMill('wood',2)],...back]);return}
  if(o.action==='vent'){s.flags.vent=true;s.enemies.filter(e=>e.id==='mineguard').forEach(e=>{if(s.keys){e.hp=0;s.flags.minePeace=true}});show(o.name,'レバーを引くと空気が通り、奥から声が届いた。\n《……僕は、ノア。誰かいるのか》',back);return}
@@ -108,7 +110,7 @@ equipment=function(){const p=active(),st=Gear.stats(p);show(p.name+' / 装備',`
 function supplies(){show('共有の旅支度',`金 ${s.gold}G。消耗品は全員で共有。装備は各人が持つ。`,Object.entries(names).filter(([id])=>(s[id]||0)>0).map(([id,name])=>[name+' ×'+s[id],()=>show(name,'使うか、足元へ置く。',[['使う',()=>{if(id==='herbs')show('薬草 / 相手を選ぶ','回復したい仲間を選ぶ。',s.party.map(p=>[p.name+' HP'+p.hp+'/'+p.max,()=>{if(!E.useHerb(s,selected,p.id))log('今は使えない。');close()}]).concat([['戻る',supplies]]));else if(id==='food'){E.rest(s);close()}else if(id==='torches'){if(!s.combat.active){s.torches--;s.lightUntil=s.turn+80;E.say(s,'松明に火をともした。')}close()}else if(id==='arrows'){show('矢','弓を装備して攻撃すると、自動で1本ずつ使う。',[['戻る',supplies]])}else{usedItem=id;close();chooseMode('use');$('targethint').hidden=false;$('targethint').textContent=name+'を使う対象を選ぶ';}}],['置く',()=>{if(s.combat.active)return;s[id]--;s.dropped.push({id:'drop-'+Date.now(),key:id,name,x:s.x,y:s.y,type:'chest'});close()}],['戻る',supplies]])]).concat([['道具へ',bag]]))}
 // Equipment dropped on the world remains an actual retrievable object.
 const inspectWithWorld=inspect;inspect=function(o){if(o.gearId){show(o.name,'地面に置いた装備。',[['拾う',()=>{if(Gear.add(s,o.gearId)){s.dropped=s.dropped.filter(d=>d.id!==o.id);close()}else log('荷物が重すぎる。')}],['そのまま',close]]);return}inspectWithWorld(o)};
-$('journal').onclick=()=>{show('旅の手帳',`三つの証　水 ${s.evidence.water?'◆':'◇'}　石 ${s.evidence.stone?'◆':'◇'}　風 ${s.evidence.wind?'◆':'◇'}\n`+(s.flags.finalEnding?'灯台で記憶を重ねた。':'東の街道を自由に旅し、人々の言葉と本の記録を照らし合わせよう。'),[['聞き書き',()=>show('聞き書き',[...s.notes,...s.topics.map(t=>({title:t.title,text:t.text}))].map(n=>n.title+'\n'+n.text).join('\n\n')||'まだ記録はない。',[['閉じる',close]])],['地図',()=>$('map').click()],['閉じる',close]])};
+$('journal').onclick=()=>{show('旅の手帳',`三つの証　水 ${s.evidence.water?'◆':'◇'}　石 ${s.evidence.stone?'◆':'◇'}　風 ${s.evidence.wind?'◆':'◇'}\n`+(s.flags.finalEnding?'灯台で記憶を重ねた。':'東の街道を自由に旅し、人々の言葉と本の記録を照らし合わせよう。'),[['寄り道',SideStories.journal],['聞き書き',()=>show('聞き書き',[...s.notes,...s.topics.map(t=>({title:t.title,text:t.text}))].map(n=>n.title+'\n'+n.text).join('\n\n')||'まだ記録はない。',[['閉じる',close]])],['地図',()=>$('map').click()],['閉じる',close]])};
 $('map').onclick=()=>{show('街道と荒野 / 旅の地図','白い印が現在地、橙の印が野営地。街の間には草原・森・川が広がる。食料と矢を整えて出発しよう。',[['閉じる',close]]);const cv=document.createElement('canvas'),scale=3;cv.width=E.W*scale;cv.height=E.H*scale;cv.className='mapcanvas';const ctx=cv.getContext('2d');for(let y=0;y<E.H;y++)for(let x=0;x<E.W;x++){ctx.fillStyle={grass:'#698254',flowers:'#698254',marsh:'#476a5b',field:'#a49a5b',orchard:'#516844',water:'#38697c',road:'#c3ad77',bridge:'#e2c58b',wall:'#b6aa86',tree:'#354e36',floor:'#9e8259',door:'#a58a55',stone:'#8a8e78',mountain:'#6c6a64',sand:'#b9ab7a'}[E.terrain(x,y)]||'#6b7b4c';ctx.fillRect(x*scale,y*scale,scale,scale)}ctx.font='11px monospace';for(const [name,x,y]of E.World.regions){const labelX=Math.min(cv.width-name.length*11-8,x*scale-5),labelY=Math.max(15,y*scale);ctx.fillStyle='#18252d';ctx.fillRect(labelX,labelY-12,name.length*11+7,16);ctx.fillStyle='#f4e8be';ctx.fillText(name,labelX+3,labelY)}for(const o of E.objs.filter(o=>o.type==='camp')){ctx.fillStyle='#f4ae62';ctx.fillRect(o.x*scale-2,o.y*scale-2,5,5)}ctx.fillStyle='#fff';ctx.fillRect(s.x*scale-3,s.y*scale-3,7,7);$('mb').append(cv)};
 render=function(){oldRender();const p=active(),st=Gear.stats(p);$('place').textContent=E.World.location(s.x,s.y);const hour=Math.floor((s.turn%320)*24/320+6)%24;$('clock').textContent=(s.combat.active?'戦闘 '+s.combat.round+'巡　':'')+String(hour).padStart(2,'0')+':00　'+s.gold+'G　矢'+s.arrows;$('quest').textContent=s.combat.active?`選択中：${p.name}　射程${st.range}　MP ${p.mp}/${st.maxmp}`:'地図をタップで歩く・人や物を調べる ／ A コマンド';const place=E.World.location(s.x,s.y);if(!s.visited.includes(place))s.visited.push(place);for(let i=0;i<s.party.length;i++){const q=s.party[i],node=$('party').children[i],detail=node?.lastChild;if(detail)detail.textContent=($items[q.gear.weapon]?.name||'素手')+' · MP '+q.mp}if(!s.combat.active)$('hint').textContent='';};
 $('help').onclick=()=>show('霊流の旅人', '方向キー／十字ボタンで歩く。地図タップで移動・会話・調査。Aでコマンド、Bで戻る。長押しで連続歩行。\n人に聞いた言葉と本の記録が「手帳」に残り、別の人へ尋ねられる話題が増えます。東の橋から村・修道院・港・鉱山へ、好きな順に探索できます。\nアイテムから仲間を選び、武器・防具・盾・装飾品を装備。弓は矢と射線が必要です。戦闘中の装備変更は1行動を使います。両手武器と盾は併用できません。\n戦闘は同じ地図で、生きている仲間が一人ずつ行動。敵が画面の視界に入ると、その場で戦闘が始まります。木・壁の向こうは見えず、夜は視界が狭まります。歩行中は前の仲間の足跡を一列でたどります。戦闘後に離れていたら、歩くか待機すると合流します。仲間とは場所を譲り合うので、狭い通路でもそのまま引き返せます。霊術は攻撃だけでなく回復、眠り、守護、灯火もあります。\n自動保存はこのブラウザー内。前の記録も引き継ぎます。', [['冒険に戻る',close],['最初から（確認）',()=>show('始め直す？','現在の記録を消して、このゲームを最初から始めます。',[['始め直す',()=>{s=E.fresh();prepareState();selected='yuris';chooseMode('explore');close()}],['やめる',close]])]]);

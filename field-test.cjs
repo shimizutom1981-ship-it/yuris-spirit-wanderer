@@ -47,7 +47,7 @@ for(const e of E.World.caveFoes)assert.equal(E.terrain(e.x,e.y),'cave');
 console.log('PASS far bank: skiff-only, '+isle.length+' targets reachable from the landing, rubble and chasm gate the core');
 // Migration from v0.4 adds the underground once and rescues anyone on the strip that became river.
 const v4=E.normalize(E.fresh());v4.worldVersion=4;v4.enemies=v4.enemies.filter(e=>!e.id.startsWith('cave-'));delete v4.boat;delete v4.rings;v4.x=44;v4.y=74;v4.party[0].x=44;v4.party[0].y=74;const count=v4.enemies.length;
-E.normalize(v4);assert.equal(v4.worldVersion,5);assert.equal(v4.enemies.length,count+5);assert.deepEqual(point(v4),{x:47,y:74});assert(E.pass(v4,v4.x,v4.y));assert.deepEqual(v4.boat,{x:121,y:75});assert(E.valid(v4));
+E.normalize(v4);assert.equal(v4.worldVersion,6);assert.equal(v4.enemies.length,count+5);assert.deepEqual(point(v4),{x:47,y:74});assert(E.pass(v4,v4.x,v4.y));assert.deepEqual(v4.boat,{x:121,y:75});assert(E.valid(v4));
 const again=JSON.stringify(v4);E.normalize(v4);assert.equal(JSON.stringify(v4),again);
 console.log('PASS migration v0.4 to v0.5: underground foes once, strip rescue, skiff and stones initialised, idempotent');
 // Skiff: needs the shipwright's leave; sails water and under bridges; steps ashore; nobody fights from the water.
@@ -136,3 +136,27 @@ let stacked=team();stacked.party.forEach(p=>{p.x=stacked.x;p.y=stacked.y});
 for(let i=0;i<5;i++)assert(E.move(stacked,1,0));unique(stacked);
 assert(stacked.party.every((p,i)=>!i||E.distance(p,stacked.party[i-1])===1));
 console.log('PASS overlap recovery: an existing stacked party walks out and forms a line');
+
+// These stories start on the mainland with no plot flags or special equipment.
+const errands=safe();
+for(const id of ['printer','ferryman','potter','kiln-turn','kiln-cache','kiln-tile','kiln-fish','kiln-swallow','kiln-shutter']){
+ const target=[...E.npcs,...E.objs].find(item=>item.id===id);
+ assert(reach(errands,target),id+' reachable from starting square');
+}
+const shelf=E.objs.find(item=>item.id==='kiln-shelf');
+assert(!reach(errands,shelf),'closed shutter has no bypass from the overworld');
+assert(!E.visible(errands,{x:167,y:50},{x:167,y:52}));
+errands.opened.push('kiln-shutter');
+assert(reach(errands,shelf));
+assert(E.visible(errands,{x:167,y:50},{x:167,y:52}));
+assert(E.World.under(shelf.x,shelf.y)&&!E.World.under(167,34));
+const beforeKiln=safe();beforeKiln.worldVersion=5;delete beforeKiln.errands;
+beforeKiln.flags.waterwheel=true;beforeKiln.evidence.water=true;
+E.normalize(beforeKiln);
+assert.equal(beforeKiln.enemies.filter(e=>e.id==='kiln-watch').length,1);
+const watch=beforeKiln.enemies.find(e=>e.id==='kiln-watch');
+beforeKiln.x=watch.x;beforeKiln.y=watch.y-1;Object.assign(beforeKiln.party[0],point(beforeKiln));
+assert(E.detectCombat(beforeKiln),'kiln watch starts a normal sight encounter');
+watch.hp=0;E.normalize(beforeKiln);assert.equal(beforeKiln.enemies.filter(e=>e.id==='kiln-watch').length,1);
+assert.equal(watch.hp,0);assert(beforeKiln.evidence.water&&beforeKiln.flags.waterwheel);
+console.log('PASS side dungeon: unassisted approach, enclosed rooms, sight, shutter and v0.5 save upgrade');

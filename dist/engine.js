@@ -30,7 +30,12 @@ const BLOCK=['water','wall','tree','mountain','rock'];
 function isNight(s){return s.turn%320>=160}
 function isEvening(s){const t=s.turn%320;return t>=160&&t<224}
 function people(s){s.npcPositions??={};return npcs.map(n=>{let pos=s.npcPositions[n.id];if(!pos||!Number.isInteger(pos.x)||!Number.isInteger(pos.y))pos=s.npcPositions[n.id]={x:n.x,y:n.y};return {...n,x:pos.x,y:pos.y}})}
-function opaque(s,x,y){const t=terrain(x,y);return t==='wall'||t==='tree'||t==='mountain'||t==='rock'||(t==='door'&&!s.openedDoors?.[`${x},${y}`])||(obj(s,x,y)?.id==='gate'&&!s.flags.gate)}
+function opaque(s,x,y){
+ const t=terrain(x,y);
+ if(t==='wall'||t==='tree'||t==='mountain'||t==='rock'||(t==='door'&&!s.openedDoors?.[`${x},${y}`]))return true;
+ const o=obj(s,x,y);
+ return !!o?.opaque||(o?.id==='gate'&&!s.flags.gate);
+}
 // Bresenham: visible opaque destinations can be inspected, but nothing beyond them.
 function visible(s,from,to){if(!from||!to||![from.x,from.y,to.x,to.y].every(Number.isInteger))return false;let x=from.x,y=from.y;const dx=Math.abs(to.x-x),sx=x<to.x?1:-1,dy=-Math.abs(to.y-y),sy=y<to.y?1:-1;let err=dx+dy;while(x!==to.x||y!==to.y){const twice=2*err,nx=x+(twice>=dy?sx:0),ny=y+(twice<=dx?sy:0);if(nx!==x&&ny!==y&&opaque(s,nx,y)&&opaque(s,x,ny))return false;if(twice>=dy){err+=dy;x=nx}if(twice<=dx){err+=dx;y=ny}if(x===to.x&&y===to.y)return true;if(opaque(s,x,y))return false}return true}
 function view(from){return {x:Math.max(0,Math.min(W-16,from.x-8)),y:Math.max(0,Math.min(H-14,from.y-7)),w:16,h:14}}

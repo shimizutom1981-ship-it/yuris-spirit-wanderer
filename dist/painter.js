@@ -4,7 +4,7 @@
 function rect(g,c,x,y,w,h){g.fillStyle=c;g.fillRect(x,y,w,h)}
 function dots(g,c,points){for(const p of points)rect(g,c,p[0],p[1],p[2]||1,p[3]||1)}
 function shade(hex,f){if(!/^#[\da-f]{6}$/i.test(hex))hex='#65999b';return '#'+hex.slice(1).match(/../g).map(v=>Math.max(0,Math.min(255,Math.round(parseInt(v,16)*f))).toString(16).padStart(2,'0')).join('')}
-function tile(g,t,x=0,y=0){if(t==='rock'){rect(g,'#2b2f33',0,0,16,16);rect(g,'#4a4f50',1,2,7,6);rect(g,'#5d6260',2,2,5,2);rect(g,'#41464a',9,5,6,7);rect(g,'#555a58',10,5,4,2);rect(g,'#3a3f42',2,10,6,5);rect(g,'#4c5152',3,10,4,1);return}if(t==='cave'){rect(g,'#3b3830',0,0,16,16);dots(g,'#4a463b',[[2,3,3],[9,7,4],[4,12,3],[12,13,2]]);dots(g,'#2c2a24',[[6,5,2],[13,2],[1,9,2],[10,11]]);return}if(['flowers','field','orchard','sand','bridge','mountain','marsh'].includes(t)){extraTile(g,t,x,y);return}const seed=Math.abs((x*73+y*131)^((x+y)*17));
+function tile(g,t,x=0,y=0){if(t==='kiln'){rect(g,'#654739',0,0,16,16);for(let row=0;row<2;row++){rect(g,'#3b302d',0,7+row*8,16,1);rect(g,'#44352f',(x+y+row)%2*8,row*8,1,7)}dots(g,'#93684e',[[2,1,4],[10,9,3]]);return}if(t==='rock'){rect(g,'#2b2f33',0,0,16,16);rect(g,'#4a4f50',1,2,7,6);rect(g,'#5d6260',2,2,5,2);rect(g,'#41464a',9,5,6,7);rect(g,'#555a58',10,5,4,2);rect(g,'#3a3f42',2,10,6,5);rect(g,'#4c5152',3,10,4,1);return}if(t==='cave'){rect(g,'#3b3830',0,0,16,16);dots(g,'#4a463b',[[2,3,3],[9,7,4],[4,12,3],[12,13,2]]);dots(g,'#2c2a24',[[6,5,2],[13,2],[1,9,2],[10,11]]);return}if(['flowers','field','orchard','sand','bridge','mountain','marsh'].includes(t)){extraTile(g,t,x,y);return}const seed=Math.abs((x*73+y*131)^((x+y)*17));
  if(t==='grass'||t==='tree'){
  rect(g,'#4e7037',0,0,16,16);for(let n=0;n<8;n++){let xx=(seed+n*7)%16,yy=(seed*3+n*11)%16;rect(g,n%2?'#5d7c3e':'#3d602f',xx,yy,2,1);if(n%3===0)rect(g,'#6d8947',xx+1,yy-1,1,1)}
  if(t==='tree'){rect(g,'#304829',3,11,12,4);rect(g,'#453923',7,8,3,7);rect(g,'#775532',8,10,1,4);rect(g,'#1b3928',3,4,11,8);rect(g,'#254a2b',1,6,13,5);rect(g,'#2b512d',4,1,8,11);rect(g,'#386135',2,4,11,5);rect(g,'#446f38',5,2,6,6);dots(g,'#628749',[[5,2,4],[3,5,2],[9,4,2],[6,7,3],[11,8]]);dots(g,'#20432a',[[2,10,3],[11,11,2],[5,12,5],[10,2],[7,9,2]])}return;
@@ -32,6 +32,9 @@ function sprite(g,color='#65999b',kind='person',id='',turn=0,hp){
 }
 function object(g,t,s={}){
  const r=(c,x,y,w,h)=>rect(g,c,x,y,w,h);r('#283c2a',3,14,11,1);
+ if(t==='kilnShutter'){r('#442e2c',0,1,16,14);for(let x=2;x<16;x+=4){r('#ba8561',x,2,2,12);r('#855b46',x+1,3,1,11)}r('#d19b6e',0,4,16,2);r('#88563d',0,11,16,2);return}
+ if(t==='cupShelf'||t==='potterBench'){r('#775239',1,10,14,3);r('#b98457',0,9,16,2);r('#674934',2,12,2,3);r('#674934',12,12,2,3);if(t==='cupShelf'?!s.errands?.cup:s.errands?.cup==='home'){r('#6098a0',3,5,10,3);r('#90c9c4',1,4,3,3);r('#90c9c4',12,4,3,3);r('#a9d8ce',3,4,10,1);r('#57808c',5,8,6,1)}return}
+ if(t==='printRack'){r('#68462f',2,3,2,12);r('#68462f',12,3,2,12);r('#ac8053',1,3,14,2);r('#ddcda5',3,5,10,7);r('#658786',4,9,8,2);if(s.errands?.print==='glove'){r('#b45e56',7,6,3,3)}else{r('#926e4c',5,8,6,1)}return}
  if(t==='boat'){r('#1d3a52',0,13,16,3);r('#3b2a1c',0,8,16,6);r('#8a633a',1,8,14,5);r('#c09a5e',0,8,16,1);r('#5d4128',3,10,10,2);r('#3b2a1c',1,13,14,1);r('#a58a5a',12,3,1,6);r('#cdb98a',11,2,3,2);return}
  if(t==='stones'){r('#6f7a74',2,4,3,10);r('#a9b3a4',2,4,2,8);r('#6f7a74',11,4,3,10);r('#a9b3a4',11,4,2,8);r('#7d8a82',6,2,4,3);r('#b9c3b0',6,2,3,1);r(s.rings&&Object.keys(s.rings).length?'#9fe3c8':'#56706a',6,8,4,4);r('#e2f5e2',7,9,2,2);return}
  if(t==='rubble'){r('#3a3f42',1,6,14,9);r('#6a6f6b',2,7,5,4);r('#858a82',3,7,3,1);r('#5b605e',8,5,6,5);r('#7c817a',9,5,3,1);r('#4d5254',4,11,7,3);r('#70756f',5,11,3,1);return}

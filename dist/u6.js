@@ -93,7 +93,7 @@ inspect=function(o){
 };
 
 // ---- Look never acts: it only describes what is there.
-const ground={grass:'草が風に揺れている。',flowers:'小さな花が咲いている。',tree:'枝葉の重なる木。通り抜けられない。',water:'冷たい水が流れている。舟があれば進める。',road:'旅人の足跡が残る道。',bridge:'木の橋。下を舟がくぐれる。',wall:'厚い石の壁。',floor:'磨かれた床板。',door:'扉だ。隣から開け閉めできる。',stone:'古い敷石。',mountain:'険しい岩山。',sand:'潮の香りのする砂。',marsh:'足を取られる湿原。',field:'よく耕された畑。',orchard:'実のなる木々。',rock:'硬い岩盤。',cave:'湿った坑道の床。'};
+const ground={kiln:'靴の下で、赤い煉瓦に積もった灰が鳴る。',grass:'草が風に揺れている。',flowers:'小さな花が咲いている。',tree:'枝葉の重なる木。通り抜けられない。',water:'冷たい水が流れている。舟があれば進める。',road:'旅人の足跡が残る道。',bridge:'木の橋。下を舟がくぐれる。',wall:'厚い石の壁。',floor:'磨かれた床板。',door:'扉だ。隣から開け閉めできる。',stone:'古い敷石。',mountain:'険しい岩山。',sand:'潮の香りのする砂。',marsh:'足を取られる湿原。',field:'よく耕された畑。',orchard:'実のなる木々。',rock:'硬い岩盤。',cave:'湿った坑道の床。'};
 const kinds={chest:'ふたのついた箱。「使う」で開けられる。',book:'読むことができる。',sign:'文字が書かれている。',lever:'引けそうだ。',well:'水をくめる。',camp:'火を囲んで休める。',stones:'古い立ち石の環。',altar:'霊流が脈打っている。',bed:'眠るための寝台。',lamp:'霊流でともる灯り。',bell:'三つの音色を持つ鐘。',wheel:'川の力を受ける車輪。',herb:'摘めそうな薬草。',crystal:'澄んだ霊晶。',gate:'古い門。'};
 function describe(o){
  if(o.id==='millwheel'&&s.flags.waterwheel)return '村の水車。軸受けが車輪を支え、石臼が回っている。';
@@ -114,7 +114,7 @@ function getAt(x,y){
  if(o.key){s[o.key]=(s[o.key]||0)+1;s.dropped=s.dropped.filter(a=>a.id!==o.id);E.say(s,o.name+'を拾った。')}
  else if(o.gearId){if(Gear.add(s,o.gearId)){s.dropped=s.dropped.filter(a=>a.id!==o.id);E.say(s,o.name+'を拾った。')}else E.say(s,'荷物が重すぎる。')}
  else if(o.take)takeObject(o);
- else if(o.loot||o.type==='herb'||['crate','cache','crystal'].includes(o.id)){inspect(o);render();save();return}
+ else if(o.side==='shelf'||o.loot||o.type==='herb'||['crate','cache','crystal'].includes(o.id)){inspect(o);render();save();return}
  else E.say(s,o.name+'は持ち運べない。'+(E.movable(o)?'「動かす」なら位置を変えられる。':''));
  E.tick(s);render();save();
 }
@@ -193,7 +193,7 @@ render=function(){
 $('map').onclick=()=>{
  A.show('街道と荒野 / 旅の地図','白＝現在地　橙＝野営地　水色＝触れた霊流の環　茶＝川舟。蒼の川は舟で下れる。',[['閉じる',close]]);
  const cv=document.createElement('canvas'),k=3;cv.width=E.W*k;cv.height=E.H*k;cv.className='mapcanvas';const ctx=cv.getContext('2d');
- const col={grass:'#698254',flowers:'#698254',marsh:'#476a5b',field:'#a49a5b',orchard:'#516844',water:'#38697c',road:'#c3ad77',bridge:'#e2c58b',wall:'#b6aa86',tree:'#354e36',floor:'#9e8259',door:'#a58a55',stone:'#8a8e78',mountain:'#6c6a64',sand:'#b9ab7a',rock:'#55554f',cave:'#55554f'};
+ const col={grass:'#698254',flowers:'#698254',marsh:'#476a5b',field:'#a49a5b',orchard:'#516844',water:'#38697c',road:'#c3ad77',bridge:'#e2c58b',wall:'#b6aa86',tree:'#354e36',floor:'#9e8259',door:'#a58a55',stone:'#8a8e78',mountain:'#6c6a64',sand:'#b9ab7a',rock:'#55554f',cave:'#55554f',kiln:'#966a50'};
  for(let y=0;y<E.H;y++)for(let x=0;x<E.W;x++){ctx.fillStyle=col[E.terrain(x,y)]||'#6b7b4c';ctx.fillRect(x*k,y*k,k,k)}
  ctx.font='11px monospace';
  for(const [name,x,y]of E.World.regions){const lx=Math.max(2,Math.min(cv.width-name.length*11-8,x*k-5)),ly=Math.max(15,y*k);ctx.fillStyle='#18252d';ctx.fillRect(lx,ly-12,name.length*11+7,16);ctx.fillStyle='#f4e8be';ctx.fillText(name,lx+3,ly)}
